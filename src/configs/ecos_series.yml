@@ -1,0 +1,21 @@
+
+kr_rates:
+  CD91:
+    stat_code: "XXXXYYYY"
+    cycle: "D"
+    item_code1: "0000001"
+    item_code2: ""
+    item_code3: ""
+  CALL_OVN:
+    stat_code: "AAAA0000"
+    cycle: "D"
+    item_code1: "0000001"
+    item_code2: ""
+    item_code3: ""
+fx:
+  USDKRW:
+    stat_code: "BBBB0000"
+    cycle: "D"
+    item_code1: "0000001"
+    item_code2: ""
+    item_code3: ""

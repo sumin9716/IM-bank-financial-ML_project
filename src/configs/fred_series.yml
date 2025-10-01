@@ -1,0 +1,8 @@
+
+us_rates:
+  SOFR: "SOFR"
+  DGS1: "DGS1"
+  DGS2: "DGS2"
+  DGS10: "DGS10"
+fx:
+  USDKRW: "DEXKOUS"
