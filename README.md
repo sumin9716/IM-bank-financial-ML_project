@@ -1,7 +1,13 @@
+# IM Bank 금융 ML 프로젝트 - FX Repository with CIP Options VaR NDF Hedge
 
-# External Data Loaders (FRED / ECOS / OpenHolidays)
+머신러닝 기반 금융 데이터 분석 프로젝트의 일부로, FX 관련 다양한 금융 상품의 가격결정, 리스크 관리, 헤지 전략을 구현한 시스템입니다.
 
-## Quick Start
+## 주요 기능
+
+### 1. External Data Loaders (FRED / ECOS / OpenHolidays)
+
+#### Quick Start
+```bash
 export FRED_API_KEY=YOUR_FRED_KEY
 # optional for KR rates / ECOS-based USDKRW:
 export ECOS_API_KEY=YOUR_ECOS_KEY
@@ -10,18 +16,19 @@ python - <<'PY'
 from src.data_loaders import load_us_rates, load_usdkrw_spot, load_holidays
 print('Try calling load_us_rates(["SOFR","DGS2","DGS10"], start="2020-01-01")')
 PY
+```
 
-## Functions
+#### Functions
 - load_us_rates(tenors=["SOFR","DGS1","DGS2","DGS10"], start="2000-01-01")
 - load_usdkrw_spot(source="FRED", start="2000-01-01")  # FRED DEXKOUS
 - load_kr_rates(["CD91","CALL_OVN"], start="2000-01-01")  # fill ECOS codes first
 - load_holidays(country="KR", years=[2024,2025])  # OpenHolidays
 
-## Configs
+#### Configs
 - src/configs/fred_series.yml
 - src/configs/ecos_series.yml  # fill real ECOS codes
 
-## Caching
+#### Caching
 - .cache/ namespace folders; override with DATA_LOADER_CACHE_DIR
 
 
@@ -137,3 +144,33 @@ reco  = recommend_hedge_ratio(feats, risk="standard")
    conservative: +1, aggressive: -1 (0/50/80 클램핑)
 
 **Demo**: `examples/hedge_demo.py`
+
+## 설치 및 실행
+
+### 요구사항
+```bash
+pip install -r requirements.txt
+```
+
+### Streamlit 앱 실행
+```bash
+streamlit run streamlit_app.py
+```
+
+## 프로젝트 구조
+```
+fx_repo_with_cip_options_var_ndf_hedge/
+├── src/                    # 핵심 모듈
+│   ├── data_loaders.py    # 외부 데이터 로더 (FRED/ECOS)
+│   ├── configs/           # 설정 파일
+│   ├── pricing/           # 가격 결정 모델 (Forward, Options)
+│   ├── risk/              # 리스크 메트릭 (VaR, ES)
+│   ├── ndf/              # NDF 시뮬레이터
+│   ├── hedge/            # 헤지 전략
+│   └── utils/            # 유틸리티
+├── examples/              # 데모 스크립트
+├── streamlit_app.py      # Streamlit 웹 애플리케이션
+└── requirements.txt      # 의존성 패키지
+```
+
+이 프로젝트는 아이엠뱅크 6기 5조 머신러닝 기반 금융 데이터 분석 프로젝트의 일환으로 개발되었습니다.
