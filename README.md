@@ -172,5 +172,3 @@ fx_repo_with_cip_options_var_ndf_hedge/
 ├── streamlit_app.py      # Streamlit 웹 애플리케이션
 └── requirements.txt      # 의존성 패키지
 ```
-
-이 프로젝트는 아이엠뱅크 6기 5조 머신러닝 기반 금융 데이터 분석 프로젝트의 일환으로 개발되었습니다.
