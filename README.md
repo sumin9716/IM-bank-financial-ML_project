@@ -220,18 +220,4 @@ python -m pytest tests/test_hedge_effectiveness.py
 - PyYAML >= 6.0
 - scipy >= 1.10
 
-## 🤝 기여하기
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 라이센스
-
-이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
-
-## 📞 문의사항
-
-프로젝트 관련 문의사항이나 버그 리포트는 GitHub Issues를 통해 남겨주세요.
