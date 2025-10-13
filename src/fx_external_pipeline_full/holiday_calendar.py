@@ -34,3 +34,11 @@ def is_business_day(date, countries=['KR'], cache_dir="data/reference/holidays_c
     hol = load_holidays(countries, [y], cache_dir)
     d = pd.Timestamp(date).normalize()
     return (d.weekday() < 5) and (not (hol["date"]==d).any())
+
+def previous_business_day(date, countries=['KR'], cache_dir="data/reference/holidays_cache"):
+    """Find the previous business day before or on the given date."""
+    d = pd.Timestamp(date).normalize()
+    while True:
+        if is_business_day(d, countries, cache_dir):
+            return d
+        d = d - pd.Timedelta(days=1)

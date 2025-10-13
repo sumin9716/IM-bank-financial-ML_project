@@ -29,9 +29,9 @@ holidays:
 
 
 policy:
-  version: v1              # v0 | v1
-  size_thresholds: [1000000, 5000000]
-  ratios: [0.0, 0.5, 0.8]
+  version: v0              # v0 | v1 (v0 for simplicity)
+  size_thresholds: [0.01, 0.1]
+  ratios: [0.3, 0.5, 0.8]
   bump_to: 0.8
   reduce_to: 0.5
   features:

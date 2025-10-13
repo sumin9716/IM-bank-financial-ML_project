@@ -94,67 +94,43 @@ def _resample_ifrs9_series(spot_eom: pd.Series,
 
 def _load_spot_rates_from_config(cfg, args):
     from fx_external_pipeline_full.external_loader import read_eom_series_csv
-    
+    from fx_external_pipeline_full.fred_loader import load_usdkrw_spot_eom_from_fred, load_us_1y_yield_eom_from_fred, load_sofr_eom_from_fred
+    from fx_external_pipeline_full.ecos_loader import load_ecos_series
+
     ds = cfg.get('data_source', {}) or {}
 
     # Spot
     if ds.get('spot','csv') == 'fred':
-        try:
-            from fx_external_pipeline_full.fred_loader import load_usdkrw_spot_eom_from_fred
-            fr = cfg.get('fred',{}); rng = (fr.get('date_range') or {})
-            spot_eom = load_usdkrw_spot_eom_from_fred(rng.get('start') or None, rng.get('end') or None)
-        except ImportError:
-            print("[WARN] FRED loader not available. Using CSV.")
-            spot_eom = read_eom_series_csv(args.spot, 'spot')
+        fr = cfg.get('fred',{}); rng = (fr.get('date_range') or {})
+        spot_eom = load_usdkrw_spot_eom_from_fred(rng.get('start') or None, rng.get('end') or None)
     else:
         spot_eom = read_eom_series_csv(args.spot, 'spot')
 
     # US rates
     choice_us = ds.get('rates_us','csv')
     if choice_us == 'fred':
-        try:
-            from fx_external_pipeline_full.fred_loader import load_us_1y_yield_eom_from_fred
-            fr = cfg.get('fred',{}); rng = (fr.get('date_range') or {})
-            us_eom = load_us_1y_yield_eom_from_fred(rng.get('start') or None, rng.get('end') or None)
-        except ImportError:
-            print("[WARN] FRED loader not available. Using CSV.")
-            us_eom = read_eom_series_csv(args.us, 'rate')
+        fr = cfg.get('fred',{}); rng = (fr.get('date_range') or {})
+        us_eom = load_us_1y_yield_eom_from_fred(rng.get('start') or None, rng.get('end') or None)
     elif choice_us == 'ecos':
-        try:
-            from fx_external_pipeline_full.ecos_loader import load_ecos_series
-            ec = cfg.get('ecos',{}); dr = ec.get('date_range') or {}
-            it = (ec.get('items') or {}).get('us_rate') or {"stat_code":"722Y001","cycle":"M","item_code":""}
-            us_eom = load_ecos_series(it['stat_code'], it['cycle'], dr.get('start') or "2018-01", dr.get('end') or "", it.get('item_code',""))/100.0
-        except ImportError:
-            print("[WARN] ECOS loader not available. Using CSV.")
-            us_eom = read_eom_series_csv(args.us, 'rate')
+        ec = cfg.get('ecos',{}); dr = ec.get('date_range') or {}
+        it = (ec.get('items') or {}).get('us_rate') or {"stat_code":"722Y001","cycle":"M","item_code":""}
+        us_eom = load_ecos_series(it['stat_code'], it['cycle'], dr.get('start') or "2018-01", dr.get('end') or "", it.get('item_code',""))/100.0
     else:
         us_eom = read_eom_series_csv(args.us, 'rate')
 
     # KR rates
     choice_kr = ds.get('rates_kr','csv')
     if choice_kr == 'ecos':
-        try:
-            from fx_external_pipeline_full.ecos_loader import load_ecos_series
-            ec = cfg.get('ecos',{}); dr = ec.get('date_range') or {}
-            it = (ec.get('items') or {}).get('kr_policy_rate') or {"stat_code":"722Y001","cycle":"M","item_code":""}
-            kr_eom = load_ecos_series(it['stat_code'], it['cycle'], dr.get('start') or "2018-01", dr.get('end') or "", it.get('item_code',""))/100.0
-        except ImportError:
-            print("[WARN] ECOS loader not available. Using CSV.")
-            kr_eom = read_eom_series_csv(args.kr, 'rate')
+        ec = cfg.get('ecos',{}); dr = ec.get('date_range') or {}
+        it = (ec.get('items') or {}).get('kr_policy_rate') or {"stat_code":"722Y001","cycle":"M","item_code":""}
+        kr_eom = load_ecos_series(it['stat_code'], it['cycle'], dr.get('start') or "2018-01", dr.get('end') or "", it.get('item_code',""))/100.0
     elif choice_kr == 'fred':
-        try:
-            from fx_external_pipeline_full.fred_loader import load_sofr_eom_from_fred
-            fr = cfg.get('fred',{}); rng = (fr.get('date_range') or {})
-            kr_eom = load_sofr_eom_from_fred(rng.get('start') or None, rng.get('end') or None)  # proxy
-        except ImportError:
-            print("[WARN] FRED loader not available. Using CSV.")
-            kr_eom = read_eom_series_csv(args.kr, 'rate')
+        fr = cfg.get('fred',{}); rng = (fr.get('date_range') or {})
+        kr_eom = load_sofr_eom_from_fred(rng.get('start') or None, rng.get('end') or None)  # proxy
     else:
         kr_eom = read_eom_series_csv(args.kr, 'rate')
 
     return spot_eom, kr_eom, us_eom
-
 
 def main():
     args = parse_args()
@@ -169,7 +145,6 @@ def main():
             else:
                 d[k] = v
         return d
-    
     if args.profile:
         prof = (cfg.get('profiles') or {}).get(args.profile)
         if prof:
@@ -179,13 +154,13 @@ def main():
         else:
             print(f"[WARN] Profile '{args.profile}' not found. Using base config.")
 
-    reports_dir = args.reports_dir
+    reports_dir = args.reports_dir or cfg['paths']['reports_dir']
     ensure_dir(reports_dir)
 
     # Panel & exposure
     panel = pd.read_csv(args.panel, parse_dates=['month'])
     exposure_df = compute_monthly_exposure(panel)
-    exposure_df = apply_policy(exposure_df, cfg=cfg)
+    exposure_df = apply_policy(exposure_df, features_df=locals().get('base_feats'), cfg=cfg)
     save_csv(exposure_df, str(Path(reports_dir)/'exposure.csv'))
 
     # Market curves via config-driven loader
@@ -202,20 +177,21 @@ def main():
     except Exception as e:
         print(f"[WARN] Could not load FRED daily spot. Falling back to EOM. Reason: {e}")
 
+    # Optional policy tuning
+    if args.tune_policy:
+        res = grid_tune_policy(panel, exposure_df, spot_daily, spot_eom, us_eom, kr_eom, fwd_theo if 'fwd_theo' in locals() else cip_forward_theoretical(spot_eom, us_eom, kr_eom, days=args.days), cfg)
+        save_csv(res, str(Path(reports_dir)/'policy_tuning_results.csv'))
+        print('[INFO] Policy tuning done. Top row is the best candidate.')
+
     # Forward & backtest
     fwd_theo = cip_forward_theoretical(spot_eom, us_eom, kr_eom, days=args.days)
     fwd_adj  = apply_spread(fwd_theo, spread_bps=args.spread_bps, side='sell_usd')
 
-    # Optional policy tuning
-    if args.tune_policy:
-        res = grid_tune_policy(panel, exposure_df, spot_daily, spot_eom, us_eom, kr_eom, fwd_theo, cfg)
-        save_csv(res, str(Path(reports_dir)/'policy_tuning_results.csv'))
-        print('[INFO] Policy tuning done. Top row is the best candidate.')
-
     pnl_df = monthly_forward_strategy(
         exposure_df, spot_eom, fwd_adj,
         countries=tuple((cfg.get('holidays') or {}).get('countries', ['KR'])),
-        holiday_cache_dir=(cfg.get('holidays') or {}).get('cache_dir','data/reference/holidays_cache')
+        holiday_cache_dir=(cfg.get('holidays') or {}).get('cache_dir','data/reference/holidays_cache'),
+        spot_daily=spot_daily
     )
     save_csv(pnl_df, str(Path(reports_dir)/'pnl_by_trade.csv'))
 
@@ -241,24 +217,21 @@ def main():
         save_csv(ind_sum, str(Path(reports_dir)/'summary_industry_large.csv'))
 
     # Risk metrics (default + per jurisdiction if provided)
-    risk_cfg = cfg.get('risk', {}) or {}
-    alpha_default = float(risk_cfg.get('alpha', 0.99))
-    window_default = int(risk_cfg.get('window_days', 252))
-    
-    if not pnl_df.empty:
-        pnl_series = pnl_df.set_index('fix_month')['pnl_krw'].sort_index()
-        var_a = historical_var(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
-        es_a  = expected_shortfall(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
-        save_csv(pd.DataFrame([{'alpha':alpha_default,'window':window_default,'VaR':var_a,'ES':es_a}]), 
-                 str(Path(reports_dir)/'var_es_summary.csv'))
+risk_cfg = cfg.get('risk', {}) or {}
+alpha_default = float(risk_cfg.get('alpha', 0.99))
+window_default = int(risk_cfg.get('window_days', 252))
+if not pnl_df.empty:
+    pnl_series = pnl_df.set_index('fix_month')['pnl_krw'].sort_index()
+    var_a = historical_var(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
+    es_a  = expected_shortfall(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
+    save_csv(pd.DataFrame([{'alpha':alpha_default,'window':window_default,'VaR':var_a,'ES':es_a}]), str(Path(reports_dir)/'var_es_summary.csv'))
 
-        jurs = risk_cfg.get('jurisdictions', {}) or {}
-        for jur, rc in jurs.items():
-            a = float(rc.get('alpha', alpha_default)); w = int(rc.get('window_days', window_default))
-            v = historical_var(pnl_series, alpha=a, window=min(w, len(pnl_series)))
-            e = expected_shortfall(pnl_series, alpha=a, window=min(w, len(pnl_series)))
-            save_csv(pd.DataFrame([{'alpha':a,'window':w,'VaR':v,'ES':e}]), 
-                     str(Path(reports_dir)/f'var_es_summary_{jur}.csv'))
+    jurs = risk_cfg.get('jurisdictions', {}) or {}
+    for jur, rc in jurs.items():
+        a = float(rc.get('alpha', alpha_default)); w = int(rc.get('window_days', window_default))
+        v = historical_var(pnl_series, alpha=a, window=min(w, len(pnl_series)))
+        e = expected_shortfall(pnl_series, alpha=a, window=min(w, len(pnl_series)))
+        save_csv(pd.DataFrame([{'alpha':a,'window':w,'VaR':v,'ES':e}]), str(Path(reports_dir)/f'var_es_summary_{jur}.csv'))
 
     # Options PoC
     if len(spot_eom)>0:
@@ -274,43 +247,41 @@ def main():
                 rows.append({'spot_S0':S0,'K':K,'days':d,'vol':vol,'rd':rd,'rf':rf,'call':call,'put':put})
         save_csv(pd.DataFrame(rows), str(Path(reports_dir)/'options_summary.csv'))
 
-    # IFRS9: monthly & quarterly effectiveness with sampling rules
-    ifrs9_sampling = cfg.get('ifrs9', {}).get('sampling', {}) or {}
-    period = (ifrs9_sampling.get('period') or 'M').upper()
-    rule = (ifrs9_sampling.get('rule') or 'month_end')
-    bounds = tuple(cfg.get('ifrs9',{}).get('dollar_offset_bounds',[0.8,1.25]))
-    r2_th = float(cfg.get('ifrs9',{}).get('regression_r2_threshold',0.8))
+# IFRS9: monthly & quarterly effectiveness with sampling rules
+ifrs9_sampling = cfg.get('ifrs9', {}).get('sampling', {}) or {}
+period = (ifrs9_sampling.get('period') or 'M').upper()
+rule = (ifrs9_sampling.get('rule') or 'month_end')
+bounds = tuple(cfg.get('ifrs9',{}).get('dollar_offset_bounds',[0.8,1.25]))
+r2_th = float(cfg.get('ifrs9',{}).get('regression_r2_threshold',0.8))
 
-    # Base monthly series
-    y_m = spot_eom.copy()
-    x_m = fwd_adj.copy()
+# Base monthly series
+y_m = spot_eom.copy()
+x_m = fwd_adj.copy()
 
-    # Quarterly sampling if requested
-    if period == 'Q':
-        y_q = sample_series(spot_daily, spot_eom, period='Q', rule=rule,
-                            countries=tuple((cfg.get('holidays') or {}).get('countries', ['KR'])),
-                            cache_dir=(cfg.get('holidays') or {}).get('cache_dir','data/reference/holidays_cache'))
-        # For forward, we don't have daily; use EOM fwd and sample by quarter end (equivalent to EOM of quarter)
-        x_q = sample_series(None, fwd_adj, period='Q', rule='month_end',
-                            countries=tuple((cfg.get('holidays') or {}).get('countries', ['KR'])),
-                            cache_dir=(cfg.get('holidays') or {}).get('cache_dir','data/reference/holidays_cache'))
-    else:
-        y_q = None; x_q = None
+# Quarterly sampling if requested
+if period == 'Q':
+    y_q = sample_series(spot_daily, spot_eom, period='Q', rule=rule,
+                        countries=tuple((cfg.get('holidays') or {}).get('countries', ['KR'])),
+                        cache_dir=(cfg.get('holidays') or {}).get('cache_dir','data/reference/holidays_cache'))
+    # For forward, we don't have daily; use EOM fwd and sample by quarter end (equivalent to EOM of quarter)
+    x_q = sample_series(None, fwd_adj, period='Q', rule='month_end',
+                        countries=tuple((cfg.get('holidays') or {}).get('countries', ['KR'])),
+                        cache_dir=(cfg.get('holidays') or {}).get('cache_dir','data/reference/holidays_cache'))
+else:
+    y_q = None; x_q = None
 
-    # Monthly detail
-    do_m = dollar_offset_ratio(y_m, x_m); r2_m = regression_r2(y_m, x_m)
-    stats_m = regression_stats(y_m, x_m)
-    judge_m = judge_effective(do_m, r2_m, bounds=bounds, r2_th=r2_th)
-    save_csv(pd.DataFrame([{**{'period':'M','DoR':do_m,'R2':r2_m,'judgement':judge_m}, **stats_m}]), 
-             str(Path(reports_dir)/'ifrs9_effectiveness_M.csv'))
+# Monthly detail
+do_m = dollar_offset_ratio(y_m, x_m); r2_m = regression_r2(y_m, x_m)
+stats_m = regression_stats(y_m, x_m)
+judge_m = judge_effective(do_m, r2_m, bounds=bounds, r2_th=r2_th)
+save_csv(pd.DataFrame([{**{'period':'M','DoR':do_m,'R2':r2_m,'judgement':judge_m}, **stats_m}]), str(Path(reports_dir)/'ifrs9_effectiveness_M.csv'))
 
-    # Quarterly detail (if applicable)
-    if y_q is not None and x_q is not None and len(y_q)>2:
-        do_q = dollar_offset_ratio(y_q, x_q); r2_q = regression_r2(y_q, x_q)
-        stats_q = regression_stats(y_q, x_q)
-        judge_q = judge_effective(do_q, r2_q, bounds=bounds, r2_th=r2_th)
-        save_csv(pd.DataFrame([{**{'period':'Q','DoR':do_q,'R2':r2_q,'judgement':judge_q}, **stats_q}]), 
-                 str(Path(reports_dir)/'ifrs9_effectiveness_Q.csv'))
+# Quarterly detail (if applicable)
+if y_q is not None and x_q is not None and len(y_q)>2:
+    do_q = dollar_offset_ratio(y_q, x_q); r2_q = regression_r2(y_q, x_q)
+    stats_q = regression_stats(y_q, x_q)
+    judge_q = judge_effective(do_q, r2_q, bounds=bounds, r2_th=r2_th)
+    save_csv(pd.DataFrame([{**{'period':'Q','DoR':do_q,'R2':r2_q,'judgement':judge_q}, **stats_q}]), str(Path(reports_dir)/'ifrs9_effectiveness_Q.csv'))
 
     # IFRS9 effectiveness (Monthly & Quarterly)
     ifrs9_cfg = cfg.get('ifrs9',{}) or {}
@@ -324,10 +295,7 @@ def main():
         do = dollar_offset_ratio(tgt, hgd)
         stats = regression_stats(tgt, hgd)
         judge = judge_effective(do, stats['r2'], bounds=bounds, r2_th=r2_th)
-        rows.append({'period':tag,'dollar_offset':do,'beta':stats['beta'],'alpha':stats['alpha'],
-                     'r2':stats['r2'],'stderr_beta':stats['stderr_beta'],'t_beta':stats['t_beta'],
-                     'p_beta':stats['p_beta'],'bounds_low':bounds[0],'bounds_high':bounds[1],
-                     'r2_th':r2_th,'judgement':judge})
+        rows.append({'period':tag,'dollar_offset':do,'beta':stats['beta'],'alpha':stats['alpha'],'r2':stats['r2'],'stderr_beta':stats['stderr_beta'],'t_beta':stats['t_beta'],'p_beta':stats['p_beta'],'bounds_low':bounds[0],'bounds_high':bounds[1],'r2_th':r2_th,'judgement':judge})
     eff_df = pd.DataFrame(rows)
     save_csv(eff_df, str(Path(reports_dir)/'ifrs9_effectiveness_summary.csv'))
 
@@ -337,48 +305,54 @@ def main():
         det = pd.DataFrame([stats])
         save_csv(det, str(Path(reports_dir)/f'ifrs9_regression_detail_{tag}.csv'))
 
+    # IFRS9 governance snapshot/changelog if requested
+    gov_ifrs9 = (ifrs9_cfg.get('governance') or {})
+    if args.freeze_ifrs9 and gov_ifrs9.get('enabled', True):
+        snap_dir = gov_ifrs9.get('snapshot_dir','reports/_artifacts/ifrs9_snapshots')
+        # prioritize quarterly snapshot
+        if 'Q' in pairs:
+            tgt_q, hgd_q = pairs['Q']
+            do_q = dollar_offset_ratio(tgt_q, hgd_q); st_q = regression_stats(tgt_q, hgd_q)
+            df_q = pd.DataFrame([{'period':'Q','dollar_offset':do_q,'beta':st_q['beta'],'alpha':st_q['alpha'],'r2':st_q['r2'],'bounds_low':bounds[0],'bounds_high':bounds[1],'r2_th':r2_th,'judgement': judge_effective(do_q, st_q['r2'], bounds=bounds, r2_th=r2_th)}])
+            snap_path = snapshot_effectiveness(df_q, str(Path(reports_dir)/Path(snap_dir).relative_to('reports') if str(snap_dir).startswith('reports/') else snap_dir), tag='Q')
+            log_csv = gov_ifrs9.get('changelog_csv','reports/ifrs9_changelog.csv')
+            append_effectiveness_changelog(str(Path(reports_dir)/Path(log_csv).name), action='effectiveness_run', actor=args.actor or 'system', note=args.ifrs9_note, params={'bounds':bounds,'r2_th':r2_th,'sampling':sampling_cfg})
+
     # Clustering
     cl = cfg.get('clustering', {}); feats = cl.get('features', ['export_amt','import_amt','net_exposure'])
     latest = (panel.sort_values(['company_id','month']).groupby('company_id').tail(1))
-    if 'region_sido_code' in feats and 'region_sido' in latest.columns: 
-        latest['region_sido_code']=encode_categorical(latest['region_sido'])
-    if 'corp_grade_code' in feats and 'corp_grade' in latest.columns: 
-        latest['corp_grade_code']=encode_categorical(latest['corp_grade'])
-    
+    if 'region_sido_code' in feats and 'region_sido' in latest.columns: latest['region_sido_code']=encode_categorical(latest['region_sido'])
+    if 'corp_grade_code' in feats and 'corp_grade' in latest.columns: latest['corp_grade_code']=encode_categorical(latest['corp_grade'])
     clustered, km_sum, gmm_sum = run_clustering(latest, feats, k_kmeans=int(cl.get('kmeans_k',4)), k_gmm=int(cl.get('gmm_k',4)))
     save_csv(km_sum, str(Path(reports_dir)/'cluster_summary_kmeans.csv'))
     save_csv(gmm_sum, str(Path(reports_dir)/'cluster_summary_gmm.csv'))
-    clustered[['company_id','cluster_kmeans','cluster_gmm']].to_csv(str(Path(reports_dir)/'cluster_labels.csv'), 
-                                                                    index=False, encoding='utf-8-sig')
+    clustered[['company_id','cluster_kmeans','cluster_gmm']].to_csv(str(Path(reports_dir)/'cluster_labels.csv'), index=False, encoding='utf-8-sig')
 
-    # Governance: snapshot + changelog
+        # Governance: snapshot + changelog
     if args.freeze_policy and (cfg.get('governance') or {}).get('enabled', True):
         gcfg = cfg.get('governance') or {}
         snap = snapshot_policy(cfg, str(Path(reports_dir)/Path(gcfg.get('snapshot_dir','reports/_artifacts/policy_snapshots')).relative_to('reports')) if str(gcfg.get('snapshot_dir','')).startswith('reports/') else gcfg.get('snapshot_dir','reports/_artifacts/policy_snapshots'))
         actor = args.actor or (gcfg.get('default_actor') or 'system')
-        append_changelog(str(Path(reports_dir)/Path(gcfg.get('changelog_csv') or 'reports/policy_changelog.csv').name), 
-                        action='pipeline_run', actor=actor, note=args.changelog_note, cfg=cfg)
+        append_changelog(str(Path(reports_dir)/Path(gcfg.get('changelog_csv') or 'reports/policy_changelog.csv').name), action='pipeline_run', actor=actor, note=args.changelog_note, cfg=cfg)
         print(f"[INFO] Policy snapshot saved: {snap}")
-    
-    # IFRS9 governance snapshot
-    if args.freeze_ifrs9 and (cfg.get('ifrs9') or {}).get('governance', {}).get('enabled', True):
-        eg = cfg.get('ifrs9').get('governance') or {}
-        eff_files = []
-        for fn in ['ifrs9_effectiveness_M.csv', 'ifrs9_effectiveness_Q.csv']:
-            p = Path(reports_dir)/fn
-            if p.exists():
-                eff_files.append(p)
-        if eff_files:
-            dd = pd.concat([pd.read_csv(p) for p in eff_files], ignore_index=True)
-            snap = snapshot_effectiveness(dd, str(Path(reports_dir)/Path(eg.get('snapshot_dir','reports/_artifacts/ifrs9_snapshots')).relative_to('reports')) if str(eg.get('snapshot_dir','')).startswith('reports/') else eg.get('snapshot_dir','reports/_artifacts/ifrs9_snapshots'),
-                                          meta={'bounds': bounds, 'r2_th': r2_th, 'sampling': {'period': period, 'rule': rule}})
-            append_effectiveness_changelog(str(Path(reports_dir)/Path((eg.get('changelog_csv') or 'reports/ifrs9_changelog.csv')).name),
-                                           action='assess', actor=(args.actor or 'system'), note=args.changelog_note,
-                                           params={'bounds': bounds, 'r2_th': r2_th, 'sampling': {'period': period, 'rule': rule}})
-            print(f"[INFO] IFRS9 snapshot saved: {snap}")
-    
+# IFRS9 governance snapshot
+if args.freeze_ifrs9 and (cfg.get('ifrs9') or {}).get('governance', {}).get('enabled', True):
+    eg = cfg.get('ifrs9').get('governance') or {}
+    eff_files = []
+    for fn in ['ifrs9_effectiveness_M.csv', 'ifrs9_effectiveness_Q.csv']:
+        p = Path(reports_dir)/fn
+        if p.exists():
+            eff_files.append(p)
+    if eff_files:
+        import pandas as pd
+        dd = pd.concat([pd.read_csv(p) for p in eff_files], ignore_index=True)
+        snap = snapshot_effectiveness(dd, str(Path(reports_dir)/Path(eg.get('snapshot_dir','reports/_artifacts/ifrs9_snapshots')).relative_to('reports')) if str(eg.get('snapshot_dir','')).startswith('reports/') else eg.get('snapshot_dir','reports/_artifacts/ifrs9_snapshots'),
+                                      meta={'bounds': bounds, 'r2_th': r2_th, 'sampling': {'period': period, 'rule': rule}})
+        append_effectiveness_changelog(str(Path(reports_dir)/Path((eg.get('changelog_csv') or 'reports/ifrs9_changelog.csv')).name)),
+                                       action='assess', actor=(args.actor or 'system'), note=args.changelog_note,
+                                       params={'bounds': bounds, 'r2_th': r2_th, 'sampling': {'period': period, 'rule': rule}})
+        print(f"[INFO] IFRS9 snapshot saved: {snap}")
     print('Pipeline completed. Reports saved to:', reports_dir)
-
 
 if __name__=='__main__':
     main()
