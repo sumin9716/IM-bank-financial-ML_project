@@ -1,0 +1,80 @@
+
+
+data_source:
+  spot: csv        # csv | fred
+  rates_us: csv    # csv | fred | ecos
+  rates_kr: csv    # csv | ecos
+
+fred:
+  api_key_env: FRED_API_KEY
+  series:
+    spot_usdkrw: DEXKOUS
+    us_yield_1y: DGS1
+    sofr_overnight: SOFR
+  date_range:
+    start: 2018-01-01
+    end: ""
+
+ecos:
+  api_key_env: ECOS_API_KEY
+  items:
+    kr_policy_rate: { stat_code: "722Y001", cycle: "M", item_code: "" }
+  date_range:
+    start: 2018-01
+    end: ""
+
+holidays:
+  countries: [KR, US]
+  cache_dir: data/reference/holidays_cache
+
+
+policy:
+  version: v1              # v0 | v1
+  size_thresholds: [1000000, 5000000]
+  ratios: [0.0, 0.5, 0.8]
+  bump_to: 0.8
+  reduce_to: 0.5
+  features:
+    rv_windows: [20, 60]
+    ma_windows: [20, 60]
+    rv20_thresh: 0.015
+    carry_thresh: 0.0
+
+tuning:
+  objective_weights: { sigma: 1.0, es: 1.0, mean: 0.5 }
+  grid:
+    rv20_thresh: [0.01, 0.015, 0.02]
+    carry_thresh: [-0.002, 0.0, 0.002]
+  min_mean_ratio: 0.9
+
+risk:
+  alpha: 0.99
+  window_days: 252
+  jurisdictions:
+    KR: { alpha: 0.99,  window_days: 252 }
+    US: { alpha: 0.975, window_days: 500 }
+
+governance:
+  enabled: true
+  snapshot_dir: reports/_artifacts/policy_snapshots
+  changelog_csv: reports/policy_changelog.csv
+  default_actor: "system"
+
+policy:
+  version: v1
+  weights:
+    credit: 0.0         # +면 등급↑일수록 헤지↑
+    size: 0.0           # +면 노출↑일수록 헤지↑
+    relationship: 0.0   # +면 관계↑일수록 헤지↑
+  bounds:
+    min_ratio: 0.0
+    max_ratio: 0.9
+
+ifrs9:
+  dollar_offset_bounds: [0.85, 1.15]
+  regression_r2_threshold: 0.90
+  sampling: { period: "Q", rule: "prev_business_day" }  # Q|M, rule: prev_business_day|month_end|avg
+  governance:
+    enabled: true
+    snapshot_dir: reports/_artifacts/ifrs9_snapshots
+    changelog_csv: reports/ifrs9_changelog.csv
