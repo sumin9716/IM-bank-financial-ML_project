@@ -25,6 +25,9 @@
 # 패키지 설치
 pip install -r requirements.txt
 
+# 데이터 유효성 검사 (선택사항)
+python validate_inputs.py
+
 # 기본 실행 (예제 데이터 사용)
 bash run_example.sh
 ```
@@ -32,7 +35,11 @@ bash run_example.sh
 ### 2. 기본 실행
 
 ```bash
+# 메인 파이프라인 실행
 python run_pipeline.py --config config/config.yml
+
+# 디버그 모드로 실행 (문제 해결시)
+python run_pipeline_debug.py
 ```
 
 ### 3. 프로파일 기반 실행
@@ -74,7 +81,10 @@ ML_project/
 │   └── ...
 ├── tests/                    # 단위 테스트
 ├── reports/                  # 결과 리포트 저장소
-└── run_pipeline.py           # 메인 실행 스크립트
+├── run_pipeline.py           # 메인 실행 스크립트
+├── run_pipeline_debug.py     # 디버그용 파이프라인
+├── filter_csv.py            # CSV 파일 필터링 도구
+└── validate_inputs.py        # 입력 데이터 유효성 검사
 ```
 
 ## 🛠️ 고급 사용법
@@ -161,10 +171,10 @@ data_source:
 ### 헤징 정책 설정
 ```yaml
 policy:
-  version: v1
-  size_thresholds: [1000000, 5000000]
-  ratios: [0.0, 0.5, 0.8]
-  features:
+  version: v0              # v0 (기본) | v1 (고급)
+  size_thresholds: [0.01, 0.1]    # 노출량 임계값 (데이터에 맞게 조정)
+  ratios: [0.3, 0.5, 0.8]         # 헤징 비율 [작은노출, 중간노출, 큰노출]
+  features:                        # v1 버전용 고급 기능
     rv_windows: [20, 60]
     ma_windows: [20, 60]
 ```
@@ -211,6 +221,25 @@ python -m pytest tests/test_pricing.py
 python -m pytest tests/test_hedge_effectiveness.py
 ```
 
+## ⚠️ 중요 사항
+
+### 데이터 설정
+- 현재 프로젝트는 작은 규모의 샘플 데이터에 최적화되어 있습니다
+- 실제 운영 데이터 사용시 `config.yml`의 `policy.size_thresholds` 값을 적절히 조정하세요
+- 헤징 정책 버전은 `v0` (단순) 또는 `v1` (고급) 중 선택 가능합니다
+
+### 문제 해결
+```bash
+# 파이프라인 실행 중 오류 발생시
+python run_pipeline_debug.py  # 상세 디버그 정보 확인
+
+# 데이터 파일 검증
+python validate_inputs.py     # 필수 데이터 파일 존재 확인
+
+# CSV 파일 처리 (필요시)
+python filter_csv.py         # 특정 컬럼만 추출
+```
+
 ## 📋 요구사항
 
 - Python 3.8+
@@ -219,5 +248,35 @@ python -m pytest tests/test_hedge_effectiveness.py
 - scikit-learn >= 1.3
 - PyYAML >= 6.0
 - scipy >= 1.10
+- holidays >= 0.34
 
+## 🚨 업데이트 로그
 
+### v2.0 (2024-10-14)
+- **파이프라인 구조 전면 개선**: 전체 코드 구조 재정리 및 안정성 향상
+- **디버그 기능 추가**: `run_pipeline_debug.py`로 상세한 실행 과정 추적 가능
+- **설정 최적화**: 작은 규모 데이터에 맞는 정책 임계값 자동 조정
+- **오류 수정**: `holiday_calendar.py`에 누락된 함수 추가
+- **도구 추가**: CSV 필터링 및 데이터 검증 유틸리티 포함
+
+### 주요 개선사항
+- ✅ 파이프라인 실행 안정성 대폭 향상
+- ✅ 에러 처리 및 디버깅 기능 강화  
+- ✅ 실제 데이터 특성에 맞는 설정 자동화
+- ✅ 사용자 친화적 문서화 및 가이드 제공
+
+## 🤝 기여하기
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 라이센스
+
+이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
+
+## 📞 문의사항
+
+프로젝트 관련 문의사항이나 버그 리포트는 GitHub Issues를 통해 남겨주세요.
