@@ -219,13 +219,17 @@ def main():
     )
     save_csv(pnl_df, str(Path(reports_dir)/'pnl_by_trade.csv'))
 
-    # Company summary
-    comp = (pnl_df.groupby('company_id').agg(
-        trades=('pnl_krw','count'),
-        pnl_sum=('pnl_krw','sum'),
-        pnl_mean=('pnl_krw','mean'),
-        pnl_std=('pnl_krw','std')).reset_index())
-    save_csv(comp, str(Path(reports_dir)/'summary_company.csv'))
+    # Company summary (only if PnL data exists and has company_id)
+    if not pnl_df.empty and 'company_id' in pnl_df.columns:
+        comp = (pnl_df.groupby('company_id').agg(
+            trades=('pnl_krw','count'),
+            pnl_sum=('pnl_krw','sum'),
+            pnl_mean=('pnl_krw','mean'),
+            pnl_std=('pnl_krw','std')).reset_index())
+        save_csv(comp, str(Path(reports_dir)/'summary_company.csv'))
+        print(f"[INFO] Company summary saved: {len(comp)} companies")
+    else:
+        print("[INFO] No PnL trades generated, skipping company summary")
 
     # Industry summary (if available)
     if 'industry_large' in panel.columns:
@@ -245,12 +249,13 @@ def main():
     alpha_default = float(risk_cfg.get('alpha', 0.99))
     window_default = int(risk_cfg.get('window_days', 252))
     
-    if not pnl_df.empty:
+    if not pnl_df.empty and 'pnl_krw' in pnl_df.columns:
         pnl_series = pnl_df.set_index('fix_month')['pnl_krw'].sort_index()
         var_a = historical_var(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
         es_a  = expected_shortfall(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
         save_csv(pd.DataFrame([{'alpha':alpha_default,'window':window_default,'VaR':var_a,'ES':es_a}]), 
                  str(Path(reports_dir)/'var_es_summary.csv'))
+        print(f"[INFO] Risk metrics calculated: VaR={var_a:.2f}, ES={es_a:.2f}")
 
         jurs = risk_cfg.get('jurisdictions', {}) or {}
         for jur, rc in jurs.items():
@@ -259,6 +264,8 @@ def main():
             e = expected_shortfall(pnl_series, alpha=a, window=min(w, len(pnl_series)))
             save_csv(pd.DataFrame([{'alpha':a,'window':w,'VaR':v,'ES':e}]), 
                      str(Path(reports_dir)/f'var_es_summary_{jur}.csv'))
+    else:
+        print("[INFO] No PnL data available, skipping risk metrics")
 
     # Options PoC
     if len(spot_eom)>0:
@@ -339,11 +346,15 @@ def main():
 
     # Clustering
     cl = cfg.get('clustering', {}); feats = cl.get('features', ['export_amt','import_amt','net_exposure'])
-    latest = (panel.sort_values(['company_id','month']).groupby('company_id').tail(1))
-    if 'region_sido_code' in feats and 'region_sido' in latest.columns: 
-        latest['region_sido_code']=encode_categorical(latest['region_sido'])
-    if 'corp_grade_code' in feats and 'corp_grade' in latest.columns: 
-        latest['corp_grade_code']=encode_categorical(latest['corp_grade'])
+    latest = (exposure_df.sort_values(['company_id','month']).groupby('company_id').tail(1))
+    # Join with panel to get categorical columns if needed for clustering
+    if 'region_sido_code' in feats or 'corp_grade_code' in feats:
+        panel_cols = panel[['company_id', 'month', 'region_sido', 'industry', 'corp_grade']].drop_duplicates()
+        latest = latest.merge(panel_cols, on=['company_id', 'month'], how='left')
+        if 'region_sido_code' in feats and 'region_sido' in latest.columns: 
+            latest['region_sido_code']=encode_categorical(latest['region_sido'])
+        if 'corp_grade_code' in feats and 'corp_grade' in latest.columns: 
+            latest['corp_grade_code']=encode_categorical(latest['corp_grade'])
     
     clustered, km_sum, gmm_sum = run_clustering(latest, feats, k_kmeans=int(cl.get('kmeans_k',4)), k_gmm=int(cl.get('gmm_k',4)))
     save_csv(km_sum, str(Path(reports_dir)/'cluster_summary_kmeans.csv'))

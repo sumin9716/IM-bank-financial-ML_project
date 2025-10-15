@@ -41,13 +41,17 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
 
             spot_trade = float(s.loc[t_eom])
             spot_fix   = float(s.loc[t1_eom])
-            fwd_trade  = float(f.loc[t_eom])
+            
+            fwd_trade = float(f.loc[t_eom])
 
             hedge = float(g.loc[i, "hedge_ratio"])
             ne = float(g.loc[i, "net_exposure"])
             notional_usd = abs(ne) * hedge / max(spot_trade, 1e-8)
 
             pnl = (spot_fix - fwd_trade) * notional_usd
+            
+            if pd.isna(pnl) or pd.isna(notional_usd):
+                continue
 
             pnl_rows.append({
                 company_col: cid,
@@ -55,8 +59,8 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
                 "fix_month": t1_eom,
                 "trade_date_bd": trade_bd,
                 "fix_date_bd": fix_bd,
-                "notional_usd": notional_usd,
-                "pnl_krw": pnl
+                "notional_usd": float(notional_usd),
+                "pnl_krw": float(pnl)
             })
 
     return pd.DataFrame(pnl_rows)

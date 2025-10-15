@@ -1,8 +1,8 @@
 
 
 data_source:
-  spot: csv        # csv | fred
-  rates_us: csv    # csv | fred | ecos
+  spot: fred       # csv | fred
+  rates_us: fred   # csv | fred | ecos
   rates_kr: csv    # csv | ecos
 
 fred:
@@ -12,16 +12,16 @@ fred:
     us_yield_1y: DGS1
     sofr_overnight: SOFR
   date_range:
-    start: 2018-01-01
-    end: ""
+    start: 2022-01-01
+    end: 2024-12-31
 
 ecos:
   api_key_env: ECOS_API_KEY
   items:
     kr_policy_rate: { stat_code: "722Y001", cycle: "M", item_code: "" }
   date_range:
-    start: 2018-01
-    end: ""
+    start: 2022-01
+    end: 2024-12
 
 holidays:
   countries: [KR, US]
@@ -30,7 +30,7 @@ holidays:
 
 policy:
   version: v0              # v0 | v1 (v0 for simplicity)
-  size_thresholds: [0.01, 0.1]
+  size_thresholds: [100000, 1000000]
   ratios: [0.3, 0.5, 0.8]
   bump_to: 0.8
   reduce_to: 0.5

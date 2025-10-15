@@ -27,3 +27,4 @@ def load_fred_series(series_id, start=None, end=None, value_to_decimal=False):
 def load_usdkrw_spot_eom_from_fred(start=None, end=None): return load_fred_series("DEXKOUS", start, end, False)
 def load_us_1y_yield_eom_from_fred(start=None, end=None): return load_fred_series("DGS1", start, end, True)
 def load_sofr_eom_from_fred(start=None, end=None): return load_fred_series("SOFR", start, end, True)
+def load_usdkrw_spot_daily_from_fred(start=None, end=None): return load_fred_series("DEXKOUS", start, end, False)
