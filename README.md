@@ -1,28 +1,28 @@
-# 🚀 AI-Powered FX Hedging & Risk Analytics Platform
+# 🚀 ML-Powered FX Hedging & Risk Analytics Platform
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![ML Models](https://img.shields.io/badge/ML-Random%20Forest%20%7C%20XGBoost-green.svg)](https://scikit-learn.org/)
 [![Risk Analytics](https://img.shields.io/badge/Risk-VaR%20%7C%20ES%20%7C%20Stress%20Testing-red.svg)](https://en.wikipedia.org/wiki/Value_at_risk)
 
-**차세대 AI 기반 외환 위험 관리 및 고객 이탈 예측 플랫폼**
+**차세대 머신러닝 기반 외환 위험 관리 및 고객 이탈 예측 플랫폼**
 
 ## 🎯 프로젝트 개요
 
 이 프로젝트는 **트리 기반 머신러닝 모델**을 활용한 차세대 외환 위험 관리 시스템입니다. Random Forest와 XGBoost 모델을 통해 효과적인 헤징 전략을 수립하고, 17,000+ 기업의 위험 분석 데이터를 기반으로 고객 이탈을 예측합니다.
 
-### � 핵심 혁신 기능
+### 🔥 핵심 혁신 기능
 
-- **🧠 AI 트리 모델**: Random Forest & XGBoost 기반 헤지 비율 예측 (R² = 1.0)
-- **� 대규모 위험 분석**: 17,092개 기업-월별 VaR/ES 및 스트레스 테스트
+- **🧠 트리 기반 ML 모델**: Random Forest & XGBoost 기반 헤지 비율 예측 (R² = 1.0)
+- **📊 대규모 위험 분석**: 17,092개 기업-월별 VaR/ES 및 스트레스 테스트
 - **🎯 고객 이탈 예측**: 앙상블 ML 모델 + SHAP 해석성 분석
 - **📈 실시간 데이터**: 한국은행 ECOS & FRED API 연동
 - **⚡ 자동화 파이프라인**: 원클릭 위험 분석 및 리포팅
-- **� 고급 분석**: 데이터 품질 검증, 클러스터링, 백테스팅
+- **🔍 고급 분석**: 데이터 품질 검증, 클러스터링, 백테스팅
 - **⚖️ IFRS9 완전 준수**: 자동화된 헤지 효과성 테스트
 - **📋 기업급 리포팅**: 실시간 CSV/Excel 호환 결과 생성
 
-### 🎓 AI 모델 성능
+### 🎓 ML 모델 성능
 
 | 모델 | 작업 | R² Score | 특징 |
 |------|------|----------|------|
@@ -46,10 +46,10 @@ pip install -r requirements.txt
 python validate_inputs.py
 ```
 
-### 2. AI 모델 실행
+### 2. ML 모델 실행
 
 ```bash
-# 🧠 AI 헤징 전략 분석 (트리 모델 포함)
+# 🧠 머신러닝 헤징 전략 분석 (트리 모델 포함)
 python run_pipeline.py --config config/config.yml
 
 # 📊 대규모 기업 위험 분석 생성
@@ -84,12 +84,12 @@ python make_external_templates.py && python run_pipeline.py
 
 ```
 ML_project/
-├── 🧠 AI & ML 모델
+├── 🧠 머신러닝 & 분석 모델
 │   ├── 이탈율.ipynb                    # 🎯 고객 이탈 예측 (앙상블 ML)
 │   ├── simple_risk_analytics.py       # 📊 대규모 기업 위험 분석
 │   └── company_risk_analytics.csv     # 📋 17,092 기업 위험 데이터
 ├── 🔧 핵심 엔진
-│   ├── run_pipeline.py               # 🚀 메인 AI 파이프라인
+│   ├── run_pipeline.py               # 🚀 메인 ML 파이프라인
 │   ├── run_pipeline_debug.py         # 🔍 고급 디버깅
 │   ├── make_external_templates.py    # 📊 데이터 전처리
 │   └── validate_inputs.py            # ✅ 데이터 품질 검증
@@ -105,12 +105,12 @@ ML_project/
 │   │       ├── spot_usdkrw_eom.csv  # 💱 USD/KRW 환율
 │   │       ├── kr_rates_month.csv   # 🏦 한국 금리
 │   │       └── us_rates_month.csv   # 🇺🇸 미국 금리
-├── 🤖 AI 소스코드 (src/fx_external_pipeline_full/)
+├── 🤖 ML 소스코드 (src/fx_external_pipeline_full/)
 │   ├── backtest.py                  # 📈 백테스트 엔진
 │   ├── clustering.py                # 🧩 ML 클러스터링
 │   ├── exposure.py                  # 💰 노출량 계산
 │   ├── features.py                  # 🎯 특성 엔지니어링
-│   ├── policy.py                    # 📋 AI 헤징 정책
+│   ├── policy.py                    # 📋 ML 헤징 정책
 │   ├── pricing.py                   # 💲 가격 모델링
 │   ├── pricing_option.py            # 📊 옵션 가격 모델
 │   ├── hedge_effectiveness.py       # ⚖️ IFRS9 효과성 테스트
@@ -126,12 +126,12 @@ ML_project/
 │   ├── test_pricing_*.py            # 💲 가격 모델 테스트
 │   └── test_risk.py                 # 🔴 리스크 테스트
 └── 📄 결과 & 리포트
-    └── reports/                     # 📊 AI 분석 결과 저장소
+    └── reports/                     # 📊 ML 분석 결과 저장소
 ```
 
 ### 🎯 핵심 파일 설명
 
-| 파일 | 기능 | AI 요소 |
+| 파일 | 기능 | ML 기술 |
 |------|------|---------|
 | `이탈율.ipynb` | 고객 이탈 예측 | RF, XGBoost, LightGBM, CatBoost |
 | `simple_risk_analytics.py` | 기업 위험 분석 | 자동화된 VaR/ES 계산 |
@@ -141,19 +141,19 @@ ML_project/
 
 ## 🛠️ 고급 사용법
 
-### 🧠 AI 모델 최적화
+### 🧠 ML 모델 최적화
 
 트리 기반 모델의 하이퍼파라미터를 자동으로 튜닝합니다:
 
 ```bash
-# 🎯 AI 정책 자동 최적화
+# 🎯 ML 정책 자동 최적화
 python run_pipeline.py --tune_policy --ml_enhanced
 
 # 🔬 고급 특성 엔지니어링 활성화
 python run_pipeline.py --enable_features --feature_selection auto
 ```
 
-### 📊 대규모 위험 분석
+### 📊 ML 분석 결과
 
 17,000+ 기업 데이터를 활용한 고급 분석:
 
@@ -181,13 +181,13 @@ predictor.run_analysis()
 "
 ```
 
-### ⚖️ IFRS9 AI 검증
+### ⚖️ IFRS9 ML 검증
 
-AI 모델 기반 헤지 효과성 자동 검증:
+머신러닝 모델 기반 헤지 효과성 자동 검증:
 
 ```bash
-# 🤖 AI 모델 효과성 테스트
-python run_pipeline.py --freeze_ifrs9 --ai_validation \
+# 🤖 ML 모델 효과성 테스트
+python run_pipeline.py --freeze_ifrs9 --ml_validation \
     --ifrs9_note "Random Forest 헤지 비율 검증 Q4 2024"
 
 # 📈 백테스트 + ML 성능 분석
@@ -197,7 +197,7 @@ python run_pipeline.py --backtest_ml --performance_metrics
 ### 🎛️ 고급 파라미터 튜닝
 
 ```bash
-# 🧠 AI 모델 세부 조정
+# 🧠 ML 모델 세부 조정
 python run_pipeline.py \
     --ml_models "rf,xgb,lgb" \
     --cross_validation 5 \
@@ -222,7 +222,7 @@ python run_pipeline.py --schedule daily --auto_report --slack_notification
 python run_pipeline.py --monthly_report --include_churn_analysis --executive_summary
 ```
 
-## 🧠 AI 모델 아키텍처
+## 🧠 ML 모델 아키텍처
 
 ### 1. 🌳 트리 기반 예측 모델
 #### Random Forest 헤지 비율 예측
@@ -248,7 +248,7 @@ python run_pipeline.py --monthly_report --include_churn_analysis --executive_sum
 
 #### SHAP 해석성 분석
 - **특성 중요도**: 고객별 이탈 요인 분석
-- **예측 근거**: 투명한 AI 의사결정
+- **예측 근거**: 투명한 ML 의사결정
 - **비즈니스 인사이트**: 실행 가능한 개선 방안
 
 ### 3. 🎯 고급 데이터 처리
@@ -346,7 +346,7 @@ company_risk_analytics.csv (17,092 records)
 ├── 🔴 Expected_Shortfall: 극한 위험값
 ├── 📊 Stress_Test_Results: 시나리오 분석
 ├── 🎯 Risk_Rating: Very Low~Very High
-├── 📈 Hedge_Recommendation: AI 추천
+├── 📈 Hedge_Recommendation: ML 추천
 └── 💱 Exposure_Category: XS/S/M/L/XL
 ```
 
@@ -369,7 +369,7 @@ reports/ 폴더 구조:
 
 ### 📈 성과 지표 대시보드
 
-| 지표 | AI 모델 | 기존 방법 | 개선률 |
+| 지표 | ML 모델 | 기존 방법 | 개선률 |
 |------|---------|----------|--------|
 | 헤지 정확도 | 99.8% | 85.2% | +14.6%p |
 | 위험 예측 정확도 | 94.1% | 78.5% | +15.6%p |
@@ -458,13 +458,13 @@ python filter_csv.py         # 특정 컬럼만 추출
 - scipy >= 1.10
 - holidays >= 0.34
 
-## � AI 혁신 업데이트 로그
+## 🔥 머신러닝 혁신 업데이트 로그
 
-### v3.0 - AI Revolution (2024-12-19)
+### v3.0 - ML Revolution (2024-12-19)
 - **🧠 트리 기반 ML 모델 추가**: Random Forest & XGBoost 헤지 예측 (R²=1.0)
 - **📊 대규모 위험 분석**: 17,092개 기업 위험 데이터베이스 구축
 - **🎯 고객 이탈 예측**: 앙상블 ML + SHAP 해석성 분석
-- **🤖 자동화 파이프라인**: AI 기반 의사결정 시스템 완성
+- **🤖 자동화 파이프라인**: ML 기반 의사결정 시스템 완성
 - **📈 성능 혁신**: 19.6배 빠른 처리속도, +24.7%p 예측 정확도 향상
 
 ### v2.5 - Enterprise Scale (2024-11-15)  
@@ -480,30 +480,18 @@ python filter_csv.py         # 특정 컬럼만 추출
 - **📚 문서화**: 포괄적 사용자 가이드 및 API 문서
 
 ### 🎯 핵심 혁신 성과
-- ✅ **AI 예측 정확도**: 기존 대비 평균 20% 향상
+- ✅ **ML 예측 정확도**: 기존 대비 평균 20% 향상
 - ✅ **처리 속도**: 19.6배 성능 개선 (45초 → 2.3초)  
 - ✅ **자동화율**: 수동 작업 90% 자동화 달성
 - ✅ **확장성**: 17,000+ 기업 실시간 분석 지원
-- ✅ **해석성**: SHAP 기반 투명한 AI 의사결정
+- ✅ **해석성**: SHAP 기반 투명한 ML 의사결정
 
 ### 🚀 차세대 로드맵
-- **🔮 실시간 AI**: 스트리밍 데이터 기반 즉시 예측
+- **🔮 실시간 예측**: 스트리밍 데이터 기반 즉시 ML 예측
 - **🌐 클라우드 배포**: AWS/Azure 기반 확장 가능한 아키텍처  
 - **📱 모바일 대시보드**: 실시간 위험 모니터링 앱
-- **🤖 GPT 연동**: 자연어 기반 위험 분석 질의응답
-
-## 🤝 기여하기
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- **🤖 고급 분석**: 딥러닝 기반 고도화된 예측 모델
 
 ## 📄 라이센스
 
 이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
-
-## 📞 문의사항
-
-프로젝트 관련 문의사항이나 버그 리포트는 GitHub Issues를 통해 남겨주세요.
