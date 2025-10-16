@@ -28,17 +28,33 @@ holidays:
   cache_dir: data/reference/holidays_cache
 
 
+# Policy Configuration - supports both rule-based (v0) and ML-enhanced (v1) modes
 policy:
-  version: v0              # v0 | v1 (v0 for simplicity)
-  size_thresholds: [100000, 1000000]
-  ratios: [0.3, 0.5, 0.8]
-  bump_to: 0.8
-  reduce_to: 0.5
-  features:
-    rv_windows: [20, 60]
-    ma_windows: [20, 60]
-    rv20_thresh: 0.015
-    carry_thresh: 0.0
+  version: v1              # v0 (rule-based) | v1 (ML-enhanced with fallback)
+  
+  # v0 Configuration (Rule-based)
+  v0:
+    size_thresholds: [100000, 1000000]
+    ratios: [0.3, 0.5, 0.8]
+    bump_to: 0.8
+    reduce_to: 0.5
+    features:
+      rv_windows: [20, 60]
+      ma_windows: [20, 60]
+      rv20_thresh: 0.015
+      carry_thresh: 0.0
+  
+  # v1 Configuration (ML-enhanced)
+  v1:
+    weights:
+      credit: 0.0         # +면 등급↑일수록 헤지↑
+      size: 0.0           # +면 노출↑일수록 헤지↑
+      relationship: 0.0   # +면 관계↑일수록 헤지↑
+    bounds:
+      min_ratio: 0.0
+      max_ratio: 0.9
+    # Fallback to v0 when ML prediction fails
+    fallback_to_v0: true
 
 tuning:
   objective_weights: { sigma: 1.0, es: 1.0, mean: 0.5 }
@@ -60,16 +76,6 @@ governance:
   changelog_csv: reports/policy_changelog.csv
   default_actor: "system"
 
-policy:
-  version: v1
-  weights:
-    credit: 0.0         # +면 등급↑일수록 헤지↑
-    size: 0.0           # +면 노출↑일수록 헤지↑
-    relationship: 0.0   # +면 관계↑일수록 헤지↑
-  bounds:
-    min_ratio: 0.0
-    max_ratio: 0.9
-
 ifrs9:
   dollar_offset_bounds: [0.85, 1.15]
   regression_r2_threshold: 0.90
@@ -83,14 +89,30 @@ ifrs9:
 ml_models:
   enabled: true
   
+  # Minimum data requirements for ML training
+  data_requirements:
+    min_samples_total: 50         # Minimum total samples for any ML training
+    min_samples_per_company: 3    # Minimum samples per company
+    min_companies: 5              # Minimum number of companies
+    min_time_periods: 6           # Minimum time periods in dataset
+  
   hedge_ratio_prediction:
     enabled: true
     model_type: random_forest  # random_forest | xgboost | lightgbm
     retrain_frequency: quarterly
+    
+    # Training parameters with safeguards
+    training:
+      test_size: 0.2              # Test split ratio (adjusted if data is small)
+      cv_folds: 5                 # Cross-validation folds (adjusted dynamically)
+      min_samples_for_cv: 25      # Minimum samples required for cross-validation
+      time_series_split: true     # Use time-based splitting when possible
+      
     model_params:
       n_estimators: 100
       max_depth: 10
       min_samples_split: 5
+      
     features:
       - net_exposure_size
       - volatility_signals
@@ -103,6 +125,7 @@ ml_models:
     model_type: random_forest  # random_forest | xgboost | lightgbm
     horizon_months: 3
     min_history_months: 12
+    
     model_params:
       n_estimators: 100
       max_depth: 12
@@ -115,3 +138,9 @@ ml_models:
     track_predictions: true
     retraining_threshold_r2: 0.6
     prediction_log: reports/ml_predictions.csv
+    
+    # Performance thresholds
+    alert_thresholds:
+      r2_degradation: 0.1       # Alert if R² drops by this much
+      prediction_drift: 0.2     # Alert if prediction distribution changes
+      error_rate_increase: 0.15 # Alert if error rate increases

@@ -207,6 +207,15 @@ def main():
         'kr_rate': kr_eom
     })
     
+    # Compute features for policy application
+    print("[INFO] Computing features for policy application...")
+    features_df = None
+    try:
+        features_df = compute_features(spot_eom, us_eom, kr_eom, cfg)
+        print(f"[INFO] Features computed for {len(features_df)} time periods")
+    except Exception as e:
+        print(f"[WARN] Feature computation failed: {e}. Policy will use v0 fallback.")
+    
     # ML Models Training and Application
     print("[INFO] Training ML models...")
     ml_models = {}
@@ -234,8 +243,9 @@ def main():
         print(f"[WARN] ML model training failed: {e}")
         ml_models = {}
     
-    # Apply enhanced policy (with ML if available)
-    exposure_df = apply_policy(exposure_df, cfg=cfg, ml_models=ml_models, market_df=market_df)
+    # Apply enhanced policy (with ML if available, features if computed)
+    exposure_df = apply_policy(exposure_df, features_df=features_df, cfg=cfg, 
+                              ml_models=ml_models, market_df=market_df)
     save_csv(exposure_df, str(Path(reports_dir)/'exposure.csv'))
     
     # Future exposure forecasting (if ML model available)

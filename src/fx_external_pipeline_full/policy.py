@@ -87,11 +87,34 @@ def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None,
             
         except Exception as e:
             logger.warning(f"ML hedge ratio prediction failed: {e}. Falling back to rule-based.")
+            # Set fallback flag to ensure proper fallback handling
+            ver = pol.get('v1', {}).get('fallback_to_v0', True) and 'v0' or ver
     
-    # Fallback to traditional rule-based policy
-    if ver == 'v1' and features_df is not None and cfg is not None:
-        return _apply_weights_and_bounds(_apply_policy_v1(exposure_df, features_df, cfg), cfg)
-    # default
+    # Determine appropriate policy version based on available inputs
+    if ver == 'v1':
+        if features_df is not None and cfg is not None:
+            try:
+                logger.info("Applying rule-based v1 policy with features")
+                return _apply_weights_and_bounds(_apply_policy_v1(exposure_df, features_df, cfg), cfg)
+            except Exception as e:
+                logger.warning(f"Policy v1 failed: {e}. Falling back to v0")
+                # Fallback to v0 if v1 configuration allows it
+                if pol.get('v1', {}).get('fallback_to_v0', True):
+                    ver = 'v0'
+                else:
+                    raise e
+        else:
+            # Missing features_df for v1, check fallback option
+            logger.warning(f"Policy v1 requires features_df but not provided. "
+                          f"features_df is None: {features_df is None}")
+            if pol.get('v1', {}).get('fallback_to_v0', True):
+                logger.info("Falling back to v0 policy due to missing features")
+                ver = 'v0'
+            else:
+                raise ValueError("Policy v1 requires features_df, but fallback to v0 is disabled")
+    
+    # Apply v0 policy (default or fallback)
+    logger.info("Applying rule-based v0 policy")
     return _apply_weights_and_bounds(_apply_policy_v0(exposure_df, cfg or {}), cfg or {})
 
 def _normalize_series(x):

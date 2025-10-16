@@ -215,7 +215,7 @@ class HedgeRatioPredictor:
     def train(self, exposure_df: pd.DataFrame, market_df: pd.DataFrame, 
               pnl_results: pd.DataFrame = None) -> Dict[str, float]:
         """
-        모델 학습
+        모델 학습 - 안전장치 포함
         """
         logger.info(f"Training hedge ratio predictor using {self.model_type}")
         
@@ -223,10 +223,42 @@ class HedgeRatioPredictor:
         X = self.prepare_features(exposure_df, market_df)
         y = self.create_target_variable(exposure_df, pnl_results)
         
-        # 학습/테스트 분할
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
+        # 최소 표본 수 검사
+        min_samples = 50  # 최소 50개 관측치 필요
+        min_samples_for_cv = 25  # 교차검증을 위한 최소 표본수
+        
+        if len(X) < min_samples:
+            logger.warning(f"Insufficient data for training: {len(X)} < {min_samples}. "
+                         f"Using simplified model or fallback to rule-based approach.")
+            # 간단한 모델로 학습 또는 에러 반환
+            if len(X) < 10:
+                raise ValueError(f"Data too small for any ML training: {len(X)} samples")
+            
+            # 매우 작은 데이터셋용 간단한 설정
+            if hasattr(self.model, 'n_estimators'):
+                self.model.set_params(n_estimators=min(10, len(X)//2))
+            if hasattr(self.model, 'max_depth'):
+                self.model.set_params(max_depth=3)
+        
+        # 데이터 분할 전략 결정
+        if len(X) >= min_samples:
+            # 충분한 데이터가 있으면 시계열 순서 고려한 분할
+            if 'month' in exposure_df.columns:
+                # 시계열 분할: 최근 20%를 테스트로
+                exposure_df_sorted = exposure_df.sort_values('month')
+                split_idx = int(len(X) * 0.8)
+                X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+                y_train, y_test = y[:split_idx], y[split_idx:]
+            else:
+                # 일반적인 random 분할
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, random_state=42
+                )
+        else:
+            # 데이터가 부족하면 전체를 train으로 사용
+            X_train, X_test = X, X.iloc[:0]  # 빈 테스트셋
+            y_train, y_test = y, y[:0]
+            logger.warning("Using all data for training due to small dataset size")
         
         # 모델 학습
         self.model.fit(X_train, y_train)
@@ -238,21 +270,46 @@ class HedgeRatioPredictor:
         
         # 성능 평가
         y_pred_train = self.model.predict(X_train)
-        y_pred_test = self.model.predict(X_test)
         
         metrics = {
             'train_r2': r2_score(y_train, y_pred_train),
-            'test_r2': r2_score(y_test, y_pred_test),
             'train_rmse': np.sqrt(mean_squared_error(y_train, y_pred_train)),
-            'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+            'n_samples': len(X),
         }
         
-        # 교차 검증
-        cv_scores = cross_val_score(self.model, X_train, y_train, cv=5, scoring='r2')
-        metrics['cv_r2_mean'] = cv_scores.mean()
-        metrics['cv_r2_std'] = cv_scores.std()
+        # 테스트 성능 (데이터가 충분한 경우만)
+        if len(X_test) > 0:
+            y_pred_test = self.model.predict(X_test)
+            metrics.update({
+                'test_r2': r2_score(y_test, y_pred_test),
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+            })
+        else:
+            metrics.update({'test_r2': None, 'test_rmse': None})
         
-        logger.info(f"Model training completed. Test R²: {metrics['test_r2']:.3f}")
+        # 교차 검증 (충분한 데이터가 있는 경우만)
+        if len(X_train) >= min_samples_for_cv:
+            try:
+                cv_folds = min(5, len(X_train) // 5)  # 동적 폴드 수 결정
+                if cv_folds >= 2:
+                    cv_scores = cross_val_score(self.model, X_train, y_train, 
+                                              cv=cv_folds, scoring='r2')
+                    metrics['cv_r2_mean'] = cv_scores.mean()
+                    metrics['cv_r2_std'] = cv_scores.std()
+                else:
+                    metrics['cv_r2_mean'] = None
+                    metrics['cv_r2_std'] = None
+                    logger.warning("Skipping cross-validation due to insufficient data")
+            except Exception as e:
+                logger.warning(f"Cross-validation failed: {e}")
+                metrics['cv_r2_mean'] = None
+                metrics['cv_r2_std'] = None
+        else:
+            metrics['cv_r2_mean'] = None
+            metrics['cv_r2_std'] = None
+        
+        test_r2 = metrics.get('test_r2', metrics['train_r2'])
+        logger.info(f"Model training completed. Test R²: {test_r2}")
         
         return metrics
     
@@ -382,6 +439,7 @@ class ExposureForecastor:
             return 0.0
         
         # 분기별 평균 노출량의 변동성
+        data = data.copy()  # 경고 방지
         data['quarter'] = data['month'].dt.quarter
         quarterly_avg = data.groupby('quarter')['net_exposure'].mean()
         
