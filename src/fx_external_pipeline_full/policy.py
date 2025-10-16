@@ -50,9 +50,45 @@ def _apply_policy_v1(exposure_df: pd.DataFrame, features_df: pd.DataFrame, cfg: 
     dd["policy_version"] = "v1"
     return dd
 
-def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None, cfg: dict|None=None) -> pd.DataFrame:
+def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None, cfg: dict|None=None, 
+                 ml_models: dict|None=None, market_df: pd.DataFrame|None=None) -> pd.DataFrame:
+    """
+    Enhanced policy application with ML-based hedge ratio prediction
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     pol = (cfg or {}).get('policy', {}) if cfg else {}
+    ml_cfg = (cfg or {}).get('ml_models', {}) if cfg else {}
     ver = pol.get('version', 'v0')
+    
+    # Check if ML hedge ratio prediction is available and enabled
+    use_ml_hedge = (ml_models is not None and 
+                    'hedge_ratio_predictor' in ml_models and
+                    ml_cfg.get('hedge_ratio_prediction', {}).get('enabled', False))
+    
+    if use_ml_hedge and market_df is not None:
+        try:
+            logger.info("Applying ML-based hedge ratio prediction")
+            hedge_predictor = ml_models['hedge_ratio_predictor']['model']
+            predicted_ratios = hedge_predictor.predict_hedge_ratios(exposure_df, market_df)
+            
+            df = exposure_df.copy()
+            df['hedge_ratio'] = predicted_ratios
+            df['policy_version'] = 'ML_enhanced'
+            
+            # Still apply weights and bounds
+            df = _apply_weights_and_bounds(df, cfg or {})
+            
+            logger.info(f"Applied ML hedge ratios. Mean: {predicted_ratios.mean():.3f}, "
+                       f"Min: {predicted_ratios.min():.3f}, Max: {predicted_ratios.max():.3f}")
+            
+            return df
+            
+        except Exception as e:
+            logger.warning(f"ML hedge ratio prediction failed: {e}. Falling back to rule-based.")
+    
+    # Fallback to traditional rule-based policy
     if ver == 'v1' and features_df is not None and cfg is not None:
         return _apply_weights_and_bounds(_apply_policy_v1(exposure_df, features_df, cfg), cfg)
     # default

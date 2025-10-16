@@ -185,8 +185,6 @@ def main():
     # Panel & exposure
     panel = pd.read_csv(args.panel, parse_dates=['month'])
     exposure_df = compute_monthly_exposure(panel)
-    exposure_df = apply_policy(exposure_df, cfg=cfg)
-    save_csv(exposure_df, str(Path(reports_dir)/'exposure.csv'))
 
     # Market curves via config-driven loader
     spot_eom, kr_eom, us_eom = _load_spot_rates_from_config(cfg, args)
@@ -201,6 +199,54 @@ def main():
             spot_daily = load_usdkrw_spot_daily_from_fred(rng.get('start') or None, rng.get('end') or None)
     except Exception as e:
         print(f"[WARN] Could not load FRED daily spot. Falling back to EOM. Reason: {e}")
+
+    # Market data preparation for ML models
+    market_df = pd.DataFrame({
+        'spot': spot_eom,
+        'us_rate': us_eom,
+        'kr_rate': kr_eom
+    })
+    
+    # ML Models Training and Application
+    print("[INFO] Training ML models...")
+    ml_models = {}
+    try:
+        from fx_external_pipeline_full.ml_models import train_ml_models
+        ml_models = train_ml_models(exposure_df, market_df, cfg)
+        
+        if ml_models:
+            print(f"[INFO] Successfully trained {len(ml_models)} ML models")
+            
+            # Log model performance
+            for model_name, model_info in ml_models.items():
+                if 'metrics' in model_info:
+                    metrics = model_info['metrics']
+                    if 'test_r2' in metrics:
+                        print(f"  {model_name}: R² = {metrics['test_r2']:.3f}")
+                    
+                    # Feature importance for hedge ratio predictor
+                    if model_name == 'hedge_ratio_predictor' and 'feature_importance' in model_info:
+                        print(f"  Top features: {list(model_info['feature_importance'].keys())[:3]}")
+        else:
+            print("[INFO] No ML models were trained")
+            
+    except Exception as e:
+        print(f"[WARN] ML model training failed: {e}")
+        ml_models = {}
+    
+    # Apply enhanced policy (with ML if available)
+    exposure_df = apply_policy(exposure_df, cfg=cfg, ml_models=ml_models, market_df=market_df)
+    save_csv(exposure_df, str(Path(reports_dir)/'exposure.csv'))
+    
+    # Future exposure forecasting (if ML model available)
+    if 'exposure_forecaster' in ml_models:
+        try:
+            forecaster = ml_models['exposure_forecaster']['model']
+            future_exposure = forecaster.predict_future_exposure(exposure_df)
+            save_csv(future_exposure, str(Path(reports_dir)/'future_exposure_forecast.csv'))
+            print(f"[INFO] Future exposure forecast saved: {len(future_exposure)} companies")
+        except Exception as e:
+            print(f"[WARN] Future exposure forecasting failed: {e}")
 
     # Forward & backtest
     fwd_theo = cip_forward_theoretical(spot_eom, us_eom, kr_eom, days=args.days)
@@ -387,6 +433,32 @@ def main():
                                            action='assess', actor=(args.actor or 'system'), note=args.changelog_note,
                                            params={'bounds': bounds, 'r2_th': r2_th, 'sampling': {'period': period, 'rule': rule}})
             print(f"[INFO] IFRS9 snapshot saved: {snap}")
+    
+    # ML Performance Monitoring and Reporting
+    if 'ml_models' in locals() and ml_models:
+        try:
+            from fx_external_pipeline_full.ml_monitoring import generate_comprehensive_ml_report
+            
+            # 기존 규칙 기반 exposure 데이터 생성 (비교용)
+            original_exposure_df = compute_monthly_exposure(panel)
+            original_exposure_df = apply_policy(original_exposure_df, cfg=cfg)  # 규칙 기반만
+            
+            # PnL 데이터 로드 (이미 생성된 백테스트 결과 사용)
+            pnl_file = Path(reports_dir) / "pnl_by_trade.csv" 
+            pnl_results = pd.read_csv(pnl_file) if pnl_file.exists() else pd.DataFrame()
+            
+            # ML 성과 리포트 생성
+            generate_comprehensive_ml_report(
+                ml_models=ml_models,
+                exposure_df_original=original_exposure_df,
+                exposure_df_enhanced=exposure_df,
+                pnl_results=pnl_results,
+                reports_dir=reports_dir
+            )
+            print("[INFO] ML performance report generated")
+            
+        except Exception as e:
+            print(f"[WARN] ML performance reporting failed: {e}")
     
     print('Pipeline completed. Reports saved to:', reports_dir)
 

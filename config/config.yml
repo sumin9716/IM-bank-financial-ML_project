@@ -1,8 +1,8 @@
 
 
 data_source:
-  spot: fred       # csv | fred
-  rates_us: fred   # csv | fred | ecos
+  spot: csv        # csv | fred
+  rates_us: csv    # csv | fred | ecos
   rates_kr: csv    # csv | ecos
 
 fred:
@@ -78,3 +78,40 @@ ifrs9:
     enabled: true
     snapshot_dir: reports/_artifacts/ifrs9_snapshots
     changelog_csv: reports/ifrs9_changelog.csv
+
+# Machine Learning Models for Advanced Hedging
+ml_models:
+  enabled: true
+  
+  hedge_ratio_prediction:
+    enabled: true
+    model_type: random_forest  # random_forest | xgboost | lightgbm
+    retrain_frequency: quarterly
+    model_params:
+      n_estimators: 100
+      max_depth: 10
+      min_samples_split: 5
+    features:
+      - net_exposure_size
+      - volatility_signals
+      - carry_trade_momentum
+      - seasonal_patterns
+      - company_clustering
+    
+  exposure_forecasting:
+    enabled: true
+    model_type: random_forest  # random_forest | xgboost | lightgbm
+    horizon_months: 3
+    min_history_months: 12
+    model_params:
+      n_estimators: 100
+      max_depth: 12
+    
+  model_storage:
+    save_models: true
+    model_dir: models/
+    
+  performance_monitoring:
+    track_predictions: true
+    retraining_threshold_r2: 0.6
+    prediction_log: reports/ml_predictions.csv
