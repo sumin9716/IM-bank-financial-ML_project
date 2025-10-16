@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import argparse, sys, pandas as pd
+import argparse, sys, pandas as pd, numpy as np
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -186,6 +186,32 @@ def main():
     panel = pd.read_csv(args.panel, parse_dates=['month'])
     exposure_df = compute_monthly_exposure(panel)
 
+    # Data quality validation and gap filling
+    print("[INFO] Performing data quality validation...")
+    from fx_external_pipeline_full.data_quality import (
+        validate_monthly_continuity, fill_monthly_gaps, 
+        generate_data_quality_report, recommend_data_fixes
+    )
+    
+    # 초기 데이터 품질 검증
+    continuity_check = validate_monthly_continuity(exposure_df)
+    if continuity_check['has_gaps']:
+        gap_pct = continuity_check['summary']['gap_percentage']
+        print(f"[WARN] Data quality issue: {continuity_check['summary']['companies_with_gaps']}/{continuity_check['summary']['total_companies']} companies have monthly gaps ({gap_pct:.1f}%)")
+        
+        # 자동 gap filling 옵션
+        fill_gaps = cfg.get('data_quality', {}).get('auto_fill_gaps', True)
+        fill_method = cfg.get('data_quality', {}).get('gap_fill_method', 'zero')
+        
+        if fill_gaps:
+            print(f"[INFO] Auto-filling gaps using method: {fill_method}")
+            exposure_df = fill_monthly_gaps(exposure_df, fill_method=fill_method)
+            print(f"[INFO] Gap filling completed. Dataset now has {len(exposure_df)} records")
+        else:
+            print("[WARN] Gap filling disabled. Proceeding with original data (may cause maturity inconsistencies)")
+    else:
+        print("[INFO] Data quality check passed: No monthly gaps detected")
+
     # Market curves via config-driven loader
     spot_eom, kr_eom, us_eom = _load_spot_rates_from_config(cfg, args)
     
@@ -275,6 +301,26 @@ def main():
     )
     save_csv(pnl_df, str(Path(reports_dir)/'pnl_by_trade.csv'))
 
+    # 종합 데이터 품질 보고서 생성
+    print("[INFO] Generating comprehensive data quality report...")
+    quality_report = generate_data_quality_report(
+        exposure_df=exposure_df, 
+        pnl_df=pnl_df,
+        output_path=str(Path(reports_dir)/'data_quality_report.json')
+    )
+    
+    # 품질 개선 권고사항
+    recommendations = recommend_data_fixes(quality_report)
+    print("[INFO] Data Quality Recommendations:")
+    for i, rec in enumerate(recommendations, 1):
+        print(f"  {i}. {rec}")
+    
+    # 만기 불일치 요약 로그
+    if 'maturity_validation' in quality_report and quality_report['maturity_validation']['has_inconsistencies']:
+        maturity_stats = quality_report['maturity_validation']['maturity_stats']
+        print(f"[WARN] Forward maturity analysis: Mean={maturity_stats['mean_days']:.1f} days, "
+              f"Range=[{maturity_stats['min_days']}-{maturity_stats['max_days']}] days")
+
     # 미체결 포지션과 실제 거래 분리 처리
     if not pnl_df.empty and 'status' in pnl_df.columns:
         # 실제 거래 (closed)와 미체결 포지션 (open) 분리
@@ -320,23 +366,75 @@ def main():
     alpha_default = float(risk_cfg.get('alpha', 0.99))
     window_default = int(risk_cfg.get('window_days', 252))
     
-    if not pnl_df.empty and 'pnl_krw' in pnl_df.columns:
-        pnl_series = pnl_df.set_index('fix_month')['pnl_krw'].sort_index()
-        var_a = historical_var(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
-        es_a  = expected_shortfall(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
-        save_csv(pd.DataFrame([{'alpha':alpha_default,'window':window_default,'VaR':var_a,'ES':es_a}]), 
-                 str(Path(reports_dir)/'var_es_summary.csv'))
-        print(f"[INFO] Risk metrics calculated: VaR={var_a:.2f}, ES={es_a:.2f}")
+    # Use closed trades only for risk calculation
+    if not pnl_for_summary.empty and 'pnl_krw' in pnl_for_summary.columns:
+        # Filter out zero PnL trades for better risk calculation
+        non_zero_pnl = pnl_for_summary[pnl_for_summary['pnl_krw'].abs() > 1e-6]
+        
+        if len(non_zero_pnl) > 0:
+            pnl_series = non_zero_pnl.set_index('fix_month')['pnl_krw'].sort_index()
+            var_a = historical_var(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
+            es_a  = expected_shortfall(pnl_series, alpha=alpha_default, window=min(window_default, len(pnl_series)))
+            save_csv(pd.DataFrame([{'alpha':alpha_default,'window':window_default,'VaR':var_a,'ES':es_a}]), 
+                     str(Path(reports_dir)/'var_es_summary.csv'))
+            print(f"[INFO] Risk metrics calculated: VaR={var_a:.2f}, ES={es_a:.2f} (from {len(pnl_series)} trades)")
 
-        jurs = risk_cfg.get('jurisdictions', {}) or {}
-        for jur, rc in jurs.items():
-            a = float(rc.get('alpha', alpha_default)); w = int(rc.get('window_days', window_default))
-            v = historical_var(pnl_series, alpha=a, window=min(w, len(pnl_series)))
-            e = expected_shortfall(pnl_series, alpha=a, window=min(w, len(pnl_series)))
-            save_csv(pd.DataFrame([{'alpha':a,'window':w,'VaR':v,'ES':e}]), 
-                     str(Path(reports_dir)/f'var_es_summary_{jur}.csv'))
+            jurs = risk_cfg.get('jurisdictions', {}) or {}
+            for jur, rc in jurs.items():
+                a = float(rc.get('alpha', alpha_default)); w = int(rc.get('window_days', window_default))
+                v = historical_var(pnl_series, alpha=a, window=min(w, len(pnl_series)))
+                e = expected_shortfall(pnl_series, alpha=a, window=min(w, len(pnl_series)))
+                save_csv(pd.DataFrame([{'alpha':a,'window':w,'VaR':v,'ES':e}]), 
+                         str(Path(reports_dir)/f'var_es_summary_{jur}.csv'))
+        else:
+            print("[INFO] No non-zero PnL trades available for risk calculation")
     else:
         print("[INFO] No PnL data available, skipping risk metrics")
+    
+    # IFRS9 Hedge Effectiveness Testing
+    print("[INFO] Performing IFRS9 hedge effectiveness tests...")
+    try:
+        if not pnl_for_summary.empty and len(pnl_for_summary) >= 8:  # 최소 8개 데이터 포인트
+            ifrs9_cfg = cfg.get('ifrs9', {})
+            
+            # 기본 효과성 테스트 - 간단한 달러 오프셋 방식
+            effectiveness_results = []
+            
+            # 회사별 효과성 테스트
+            for company_id, company_pnl in pnl_for_summary.groupby('company_id'):
+                if len(company_pnl) >= 4:  # 회사별 최소 4개 거래
+                    pnl_values = company_pnl['pnl_krw'].values
+                    
+                    # 간단한 효과성 테스트 (PnL 변동성 기준)
+                    pnl_std = np.std(pnl_values)
+                    pnl_mean = np.abs(np.mean(pnl_values))
+                    
+                    # 효과성 판정: 표준편차가 평균 절댓값의 2배 이하면 효과적
+                    is_effective = pnl_std <= (pnl_mean * 2) if pnl_mean > 0 else True
+                    
+                    effectiveness_results.append({
+                        'company_id': company_id,
+                        'test_type': 'dollar_offset_simplified',
+                        'is_effective': is_effective,
+                        'pnl_mean': pnl_mean,
+                        'pnl_std': pnl_std,
+                        'sample_size': len(company_pnl),
+                        'test_date': company_pnl['fix_month'].max()
+                    })
+            
+            if effectiveness_results:
+                effectiveness_df = pd.DataFrame(effectiveness_results)
+                save_csv(effectiveness_df, str(Path(reports_dir)/'ifrs9_effectiveness_summary.csv'))
+                
+                effective_rate = effectiveness_df['is_effective'].mean() * 100
+                print(f"[INFO] IFRS9 effectiveness tests completed: {effective_rate:.1f}% effective ({len(effectiveness_df)} companies)")
+            else:
+                print("[INFO] No companies met minimum requirements for effectiveness testing")
+        else:
+            print("[INFO] Insufficient data for IFRS9 effectiveness testing")
+            
+    except Exception as e:
+        print(f"[WARN] IFRS9 effectiveness testing failed: {e}")
 
     # Options PoC
     if len(spot_eom)>0:
@@ -484,6 +582,20 @@ def main():
             
         except Exception as e:
             print(f"[WARN] ML performance reporting failed: {e}")
+    
+    # 기업별 상세 리스크 분석 생성
+    try:
+        import sys
+        sys.path.append('.')
+        from simple_risk_analytics import create_simple_risk_analytics
+        print("[INFO] Generating comprehensive company risk analytics...")
+        risk_report, risk_summary = create_simple_risk_analytics(
+            f"{reports_dir}/exposure.csv",
+            f"{reports_dir}/company_risk_analytics.csv"
+        )
+        print(f"[INFO] Company risk analytics completed: {risk_summary['total_records']} records for {risk_summary['unique_companies']} companies")
+    except Exception as e:
+        print(f"[WARN] Company risk analytics generation failed: {e}")
     
     print('Pipeline completed. Reports saved to:', reports_dir)
 

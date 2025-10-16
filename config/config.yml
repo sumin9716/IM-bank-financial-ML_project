@@ -76,6 +76,19 @@ governance:
   changelog_csv: reports/policy_changelog.csv
   default_actor: "system"
 
+# Data Quality and Validation Settings
+data_quality:
+  auto_fill_gaps: true              # 자동으로 월별 데이터 공백 채우기
+  gap_fill_method: "zero"           # zero | forward_fill | interpolate
+  maturity_tolerance_days: 10       # 선도 만기 허용 오차 (일)
+  min_companies_threshold: 5        # 최소 회사 수 임계값
+  validation:
+    check_monthly_continuity: true  # 월별 연속성 검사
+    check_maturity_consistency: true # 선도 만기 일관성 검사
+    generate_quality_report: true   # 품질 보고서 생성
+    warn_on_gaps: true             # 데이터 공백 시 경고
+    fail_on_critical_gaps: false   # 심각한 공백 시 실행 중단
+
 ifrs9:
   dollar_offset_bounds: [0.85, 1.15]
   regression_r2_threshold: 0.90

@@ -44,13 +44,27 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
             spot_trade = float(s.loc[t_eom])
             spot_fix   = float(s.loc[t1_eom])
             
-            fwd_trade = float(f.loc[t_eom])
+            # 실제 만기 일수 계산
+            actual_days = (t1_eom - t_eom).days
+            
+            # 원래 선도가격 (30일 가정)
+            fwd_trade_30d = float(f.loc[t_eom])
+            
+            # 실제 만기에 맞는 선도가격 조정 (간단한 선형 보간)
+            # 실제로는 이자율 커브를 사용해야 하지만, 여기서는 근사치로 처리
+            if actual_days != 30:
+                # 30일 대비 실제 일수 비율로 선도 프리미엄 조정
+                adjustment_factor = actual_days / 30.0
+                fwd_premium = fwd_trade_30d - spot_trade
+                fwd_trade_adjusted = spot_trade + (fwd_premium * adjustment_factor)
+            else:
+                fwd_trade_adjusted = fwd_trade_30d
 
             hedge = float(g.loc[i, "hedge_ratio"])
             ne = float(g.loc[i, "net_exposure"])
             notional_usd = abs(ne) * hedge / max(spot_trade, 1e-8)
 
-            pnl = (spot_fix - fwd_trade) * notional_usd
+            pnl = (spot_fix - fwd_trade_adjusted) * notional_usd
             
             # 데이터 품질 검증
             if pd.isna(pnl) or pd.isna(notional_usd):
@@ -67,7 +81,11 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
                 "trade_date_bd": trade_bd,
                 "fix_date_bd": fix_bd,
                 "notional_usd": float(notional_usd),
-                "pnl_krw": float(pnl)
+                "pnl_krw": float(pnl),
+                "actual_maturity_days": actual_days,
+                "forward_price_30d": float(fwd_trade_30d),
+                "forward_price_adjusted": float(fwd_trade_adjusted),
+                "maturity_adjustment": "adjusted" if actual_days != 30 else "standard"
             })
 
     df_trades = pd.DataFrame(pnl_rows)
