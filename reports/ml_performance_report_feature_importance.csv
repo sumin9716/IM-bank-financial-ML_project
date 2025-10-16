@@ -1,0 +1,14 @@
+model,feature,importance_score,rank
+hedge_ratio_predictor,net_exposure_abs,0.4185058774560555,1
+hedge_ratio_predictor,net_exposure_log,0.36901779768197823,2
+hedge_ratio_predictor,exposure_size_tier,0.2124763248618777,3
+hedge_ratio_predictor,exposure_direction,1.4666639558507805e-14,4
+hedge_ratio_predictor,carry_signal,1.2225307320046716e-14,5
+hedge_ratio_predictor,usd_krw_level,1.2193513270634277e-14,6
+hedge_ratio_predictor,is_year_end,1.1491805464621509e-14,7
+hedge_ratio_predictor,momentum_signal,1.1402809823937124e-14,8
+hedge_ratio_predictor,month_of_year,7.14852103653948e-15,9
+hedge_ratio_predictor,volatility_20d,7.091126988482772e-15,10
+hedge_ratio_predictor,volatility_60d,6.348368134208606e-15,11
+hedge_ratio_predictor,quarter,5.971714879522857e-15,12
+hedge_ratio_predictor,company_cluster,0.0,13

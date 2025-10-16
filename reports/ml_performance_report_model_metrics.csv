@@ -1,0 +1,3 @@
+train_r2,train_rmse,n_samples,test_r2,test_rmse,cv_r2_mean,cv_r2_std,model_name,test_mae
+1.0,7.838362377905583e-15,21441.0,1.0,7.595985471640109e-15,0.999999539373521,9.212529580082673e-07,hedge_ratio_predictor,
+,,,0.583701567659818,1365898.8703403885,,,exposure_forecaster,319828.7346822962

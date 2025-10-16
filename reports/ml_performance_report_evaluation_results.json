@@ -1,0 +1,22 @@
+{
+  "hedge_ratio_comparison": {
+    "original_mean": 0.050531142973239684,
+    "ml_enhanced_mean": 0.33567464204094954,
+    "original_std": 0.16547161946004937,
+    "ml_enhanced_std": 0.21694134660918002,
+    "improvement_mean": 0.28514349906770986
+  },
+  "pnl_analysis": {
+    "total_pnl_krw": -7957576.489082277,
+    "average_pnl_krw": -465.57316224445805,
+    "pnl_volatility": 8057.750910450509,
+    "sharpe_ratio": -0.0577795426315093,
+    "positive_pnl_ratio": 0.3604025274982448
+  },
+  "hedge_efficiency": {
+    "hedge_utilization_rate": 0.7971643113660744,
+    "average_hedge_ratio_when_hedged": 0.42108588813479986,
+    "companies_with_hedge": 17092,
+    "total_companies": 21441
+  }
+}

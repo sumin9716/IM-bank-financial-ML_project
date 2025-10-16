@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-10-16T14:10:40.075451",
+  "exposure_validation": {
+    "has_gaps": false,
+    "companies_with_gaps": [],
+    "gap_details": [],
+    "summary": {
+      "total_companies": 3411,
+      "companies_with_gaps": 0,
+      "gap_percentage": 0.0,
+      "total_missing_months": 0
+    }
+  },
+  "data_overview": {
+    "total_companies": 3411,
+    "date_range": {
+      "start": "2022-01-31 00:00:00",
+      "end": "2024-12-31 00:00:00"
+    },
+    "total_records": 21441
+  },
+  "maturity_validation": {
+    "has_inconsistencies": false,
+    "total_trades": 17092,
+    "inconsistent_trades": 0,
+    "inconsistency_percentage": 0.0,
+    "maturity_stats": {
+      "mean_days": 30.43002989863633,
+      "median_days": 31.0,
+      "min_days": 28.0,
+      "max_days": 31.0,
+      "std_days": 0.7948526099282434
+    },
+    "details": []
+  },
+  "pnl_overview": {
+    "total_trades": 17092,
+    "companies_with_trades": 3400
+  }
+}
