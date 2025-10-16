@@ -213,12 +213,12 @@ def save_ml_performance_report(ml_models: Dict[str, Any],
         
         if model_metrics:
             metrics_df = pd.DataFrame(model_metrics)
-            metrics_df.to_csv(f"{save_path}_model_metrics.csv", index=False)
+            metrics_df.to_csv(f"{save_path}_model_metrics.csv", index=False, encoding="utf-8")
         
         # 2. 특성 중요도 저장
         importance_df = generate_ml_feature_importance_report(ml_models)
         if not importance_df.empty:
-            importance_df.to_csv(f"{save_path}_feature_importance.csv", index=False)
+            importance_df.to_csv(f"{save_path}_feature_importance.csv", index=False, encoding="utf-8")
         
         # 3. 성과 평가 결과 저장
         import json

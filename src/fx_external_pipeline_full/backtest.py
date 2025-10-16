@@ -13,7 +13,9 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
                              company_col: str = "company_id",
                              date_col: str = "month",
                              countries = ("KR",),
-                             holiday_cache_dir: str = "data/reference/holidays_cache") -> pd.DataFrame:
+                             holiday_cache_dir: str = "data/reference/holidays_cache",
+                             min_notional_threshold: float = 1e-6,
+                             include_open_positions: bool = True) -> pd.DataFrame:
     """
     월말 체결 → 익월 만기 전략 (영업일 보정 적용).
     - trade_date_bd: 체결월의 '직전 영업일'
@@ -50,7 +52,12 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
 
             pnl = (spot_fix - fwd_trade) * notional_usd
             
+            # 데이터 품질 검증
             if pd.isna(pnl) or pd.isna(notional_usd):
+                continue
+                
+            # 명목금액이 임계값 미만인 무의미한 트레이드 제외
+            if abs(notional_usd) < min_notional_threshold:
                 continue
 
             pnl_rows.append({
@@ -63,4 +70,45 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
                 "pnl_krw": float(pnl)
             })
 
-    return pd.DataFrame(pnl_rows)
+    df_trades = pd.DataFrame(pnl_rows)
+    
+    # 미체결 포지션 처리 (마지막 노출월에 대한 열린 포지션 정보)
+    if include_open_positions:
+        open_positions = []
+        
+        for cid, grp in exposure_df.groupby(company_col):
+            g = grp.sort_values(date_col).reset_index(drop=True)
+            if len(g) > 0:
+                # 마지막 노출월 (미체결 포지션)
+                last_row = g.iloc[-1]
+                last_month = pd.to_datetime(last_row[date_col]).normalize()
+                
+                hedge = float(last_row["hedge_ratio"])
+                ne = float(last_row["net_exposure"])
+                
+                # 명목금액이 임계값 이상인 경우만 포함
+                if abs(ne) * hedge >= min_notional_threshold and last_month in spot_eom.index:
+                    spot_last = float(spot_eom.loc[last_month])
+                    notional_usd = abs(ne) * hedge / max(spot_last, 1e-8)
+                    
+                    trade_bd = _adjust_prev_bday(last_month, countries, holiday_cache_dir)
+                    
+                    open_positions.append({
+                        company_col: cid,
+                        "trade_month": last_month,
+                        "fix_month": None,  # 미체결
+                        "trade_date_bd": trade_bd,
+                        "fix_date_bd": None,  # 미체결
+                        "notional_usd": float(notional_usd),
+                        "pnl_krw": 0.0,  # 미실현
+                        "status": "open"
+                    })
+        
+        # 열린 포지션 정보를 별도 처리 (메인 거래 데이터와 구분)
+        if open_positions:
+            df_open = pd.DataFrame(open_positions)
+            # 실제 거래와 열린 포지션을 구분하기 위해 status 컬럼 추가
+            df_trades['status'] = 'closed'
+            df_trades = pd.concat([df_trades, df_open], ignore_index=True)
+    
+    return df_trades

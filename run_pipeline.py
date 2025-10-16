@@ -275,9 +275,24 @@ def main():
     )
     save_csv(pnl_df, str(Path(reports_dir)/'pnl_by_trade.csv'))
 
-    # Company summary (only if PnL data exists and has company_id)
-    if not pnl_df.empty and 'company_id' in pnl_df.columns:
-        comp = (pnl_df.groupby('company_id').agg(
+    # 미체결 포지션과 실제 거래 분리 처리
+    if not pnl_df.empty and 'status' in pnl_df.columns:
+        # 실제 거래 (closed)와 미체결 포지션 (open) 분리
+        closed_trades = pnl_df[pnl_df['status'] == 'closed'] if 'status' in pnl_df.columns else pnl_df
+        open_positions = pnl_df[pnl_df['status'] == 'open'] if 'status' in pnl_df.columns else pd.DataFrame()
+        
+        if not open_positions.empty:
+            save_csv(open_positions, str(Path(reports_dir)/'open_positions.csv'))
+            print(f"[INFO] Open positions saved: {len(open_positions)} positions")
+            
+        # 요약 통계는 실제 거래만으로 계산
+        pnl_for_summary = closed_trades
+    else:
+        pnl_for_summary = pnl_df
+
+    # Company summary (only if PnL data exists and has company_id)  
+    if not pnl_for_summary.empty and 'company_id' in pnl_for_summary.columns:
+        comp = (pnl_for_summary.groupby('company_id').agg(
             trades=('pnl_krw','count'),
             pnl_sum=('pnl_krw','sum'),
             pnl_mean=('pnl_krw','mean'),

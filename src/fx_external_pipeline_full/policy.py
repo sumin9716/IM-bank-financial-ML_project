@@ -156,5 +156,17 @@ def _apply_weights_and_bounds(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     min_r = float(bounds.get('min_ratio', 0.0))
     max_r = float(bounds.get('max_ratio', 1.0))
     df['hedge_ratio'] = df['hedge_ratio'].clip(lower=min_r, upper=max_r)
+    
+    # 순노출이 0인 경우 헤지비율을 0으로 강제 설정 (무의미한 트레이드 방지)
+    if 'net_exposure' in df.columns:
+        zero_exposure_mask = (df['net_exposure'].abs() < 1e-6)
+        if zero_exposure_mask.any():
+            df.loc[zero_exposure_mask, 'hedge_ratio'] = 0.0
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Set hedge ratio to 0 for {zero_exposure_mask.sum()} companies with zero net exposure")
+    
+    # 헤지비율 반올림 (보고서 품질 개선)
+    df['hedge_ratio'] = df['hedge_ratio'].round(3)
 
     return df

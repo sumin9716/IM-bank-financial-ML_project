@@ -316,7 +316,7 @@ class HedgeRatioPredictor:
     def predict_hedge_ratios(self, exposure_df: pd.DataFrame, 
                            market_df: pd.DataFrame) -> np.ndarray:
         """
-        헤지 비율 예측
+        헤지 비율 예측 - 반올림 및 품질 검증 포함
         """
         if not self.is_fitted:
             raise ValueError("Model must be trained before prediction")
@@ -326,6 +326,21 @@ class HedgeRatioPredictor:
         
         # 0-1 범위로 제한
         ratios = np.clip(ratios, 0.0, 1.0)
+        
+        # 소수점 3자리로 반올림 (보고용 품질 개선)
+        ratios = np.round(ratios, 3)
+        
+        # 예측 품질 검증 로깅
+        unique_ratios = np.unique(ratios)
+        logger.info(f"ML predicted {len(unique_ratios)} unique hedge ratios. "
+                   f"Range: [{ratios.min():.3f}, {ratios.max():.3f}]. "
+                   f"Common values: {unique_ratios[:5] if len(unique_ratios) > 5 else unique_ratios}")
+        
+        # 순노출 0인 경우 헤지비율 0으로 강제 설정
+        zero_exposure_mask = (exposure_df['net_exposure'].abs() < 1e-6)
+        if zero_exposure_mask.any():
+            ratios[zero_exposure_mask] = 0.0
+            logger.info(f"Set hedge ratio to 0 for {zero_exposure_mask.sum()} companies with zero net exposure")
         
         return ratios
     
