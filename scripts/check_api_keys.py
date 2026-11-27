@@ -14,7 +14,7 @@ from fx_external_pipeline_full.fred_loader import load_usdkrw_spot_eom_from_fred
 
 
 def _report_key(name: str) -> None:
-    print(f"{name}: {'설정됨' if os.getenv(name) else '없음'}")
+    print(f"{name}: {'set' if os.getenv(name) else 'not set'}")
 
 
 def main() -> int:
@@ -24,16 +24,16 @@ def main() -> int:
     failed = False
     try:
         spot = load_usdkrw_spot_eom_from_fred("2024-01-01", "2024-03-31")
-        print(f"FRED: {len(spot)}개 월말 값 수신")
+        print(f"[OK] FRED: {len(spot)} month-end values")
     except Exception as e:  # 네트워크·인증 오류를 모두 같은 형식으로 보고한다
-        print(f"FRED 실패: {e}")
+        print(f"[FAIL] FRED: {e}")
         failed = True
 
     try:
         kr = load_ecos_series("722Y001", "M", "2024-01", "2024-03", "")
-        print(f"ECOS: {len(kr)}개 월말 값 수신")
+        print(f"[OK] ECOS: {len(kr)} month-end values")
     except Exception as e:
-        print(f"ECOS 실패: {e}")
+        print(f"[FAIL] ECOS: {e}")
         failed = True
 
     return 1 if failed else 0
