@@ -585,11 +585,12 @@ def main():
     
     # 기업별 상세 리스크 분석 생성
     try:
-        from fx_external_pipeline_full.company_risk_analytics import create_simple_risk_analytics
+        from fx_external_pipeline_full.company_risk_analytics import create_company_risk_analytics
         print("[INFO] Generating comprehensive company risk analytics...")
-        risk_report, risk_summary = create_simple_risk_analytics(
+        risk_report, risk_summary = create_company_risk_analytics(
             f"{reports_dir}/exposure.csv",
-            f"{reports_dir}/company_risk_analytics.csv"
+            f"{reports_dir}/company_risk_analytics.csv",
+            spot_file=args.spot,
         )
         print(f"[INFO] Company risk analytics completed: {risk_summary['total_records']} records for {risk_summary['unique_companies']} companies")
     except Exception as e:
