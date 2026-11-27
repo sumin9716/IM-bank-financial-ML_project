@@ -112,8 +112,6 @@ def under_reports_dir(path_cfg: str, reports_dir: str) -> str:
     return path_cfg
 
 
-# --- 시장 데이터 --------------------------------------------------------------
-
 def _fred_range(cfg: dict):
     rng = cfg.get('fred', {}).get('date_range') or {}
     return rng.get('start') or None, rng.get('end') or None
@@ -173,8 +171,6 @@ def load_daily_spot(cfg: dict) -> pd.Series | None:
         print(f"[WARN] Could not load FRED daily spot. Falling back to EOM. Reason: {e}")
         return None
 
-
-# --- 노출·모델 ----------------------------------------------------------------
 
 def prepare_exposure(panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """패널을 기업·월별 순노출로 집계하고, 설정에 따라 월 공백을 채운다."""
@@ -247,8 +243,6 @@ def write_exposure_forecast(ml_models: dict, exposure_df: pd.DataFrame, reports_
     save_csv(future_exposure, str(Path(reports_dir)/'future_exposure_forecast.csv'))
     print(f"[INFO] Future exposure forecast saved: {len(future_exposure)} companies")
 
-
-# --- 백테스트 결과 요약 -------------------------------------------------------
 
 def write_data_quality(exposure_df: pd.DataFrame, pnl_df: pd.DataFrame, reports_dir: str) -> None:
     print("[INFO] Generating comprehensive data quality report...")
@@ -394,8 +388,6 @@ def write_option_quotes(spot_eom: pd.Series, cfg: dict, reports_dir: str) -> Non
     save_csv(pd.DataFrame(rows), str(Path(reports_dir)/'options_summary.csv'))
 
 
-# --- IFRS9 효과성 -------------------------------------------------------------
-
 def ifrs9_samples(spot_eom, fwd_eom, spot_daily, rule, countries, cache_dir) -> dict:
     """{'M': (피헤지 대상, 헤지 수단), 'Q': (...)} — 대상은 환율, 수단은 선도환율."""
     # 선도환율은 일별 자료가 없어 'avg'가 아니면 분기 마지막 월말 값을 쓴다.
@@ -435,8 +427,6 @@ def write_ifrs9_effectiveness(spot_eom, fwd_adj, spot_daily, cfg, reports_dir) -
     save_csv(pd.DataFrame(rows), str(Path(reports_dir)/'ifrs9_effectiveness_summary.csv'))
     return {'bounds': bounds, 'r2_th': r2_th, 'sampling': {'period': period, 'rule': rule}}
 
-
-# --- 군집·거버넌스·부가 리포트 -----------------------------------------------
 
 def write_clusters(exposure_df: pd.DataFrame, panel: pd.DataFrame, cfg: dict, n_clusters: int | None,
                    reports_dir: str) -> None:
