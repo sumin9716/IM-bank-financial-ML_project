@@ -235,22 +235,23 @@ class TestMLMonitoringFunctions(unittest.TestCase):
         self.pnl_df = pd.DataFrame({
             'company_id': [f'COMP_{i}' for i in range(10)],
             'month': pd.to_datetime('2024-01-01'),
-            'pnl': np.random.uniform(-50000, 50000, 10)
+            'pnl_krw': np.random.uniform(-50000, 50000, 10)
         })
     
     def test_performance_evaluation_function(self):
-        """Test performance evaluation function"""
-        # Should not raise errors
-        try:
-            results = evaluate_hedge_performance(
-                original_exposure_df=self.rule_exposure_df,
-                ml_enhanced_exposure_df=self.ml_exposure_df,
-                pnl_results=self.pnl_df
-            )
-            self.assertIsInstance(results, dict)
-        except Exception as e:
-            # Monitor may have dependencies we don't have in test environment
-            self.skipTest(f"Monitor evaluation requires additional setup: {e}")
+        results = evaluate_hedge_performance(
+            original_exposure_df=self.rule_exposure_df,
+            ml_enhanced_exposure_df=self.ml_exposure_df,
+            pnl_results=self.pnl_df
+        )
+        self.assertEqual(set(results), {'hedge_ratio_comparison', 'pnl_analysis', 'hedge_efficiency'})
+        self.assertAlmostEqual(results['hedge_ratio_comparison']['original_mean'], 0.5)
+        self.assertAlmostEqual(results['pnl_analysis']['total_pnl_krw'], self.pnl_df['pnl_krw'].sum())
+        self.assertEqual(results['hedge_efficiency']['companies_with_hedge'], 10)
+
+    def test_performance_evaluation_without_pnl(self):
+        results = evaluate_hedge_performance(self.rule_exposure_df, self.ml_exposure_df, pd.DataFrame())
+        self.assertNotIn('pnl_analysis', results)
 
 
 class TestIntegratedMLPipeline(unittest.TestCase):
