@@ -15,3 +15,14 @@ def test_apply_policy_thresholds():
     })
     out = apply_policy(df)
     assert list(out["hedge_ratio"]) == [0.0, 0.5, 0.8]
+
+
+def test_zero_exposure_gets_zero_ratio_and_bounds_apply():
+    df = pd.DataFrame({
+        "company_id": ["z", "l"],
+        "month": pd.to_datetime(["2024-01-31"] * 2),
+        "net_exposure": [0.0, 10e6],
+    })
+    out = apply_policy(df, cfg={"policy": {"version": "v0", "bounds": {"max_ratio": 0.6}}})
+    assert list(out["hedge_ratio"]) == [0.0, 0.6]
+    assert set(out["policy_version"]) == {"v0"}

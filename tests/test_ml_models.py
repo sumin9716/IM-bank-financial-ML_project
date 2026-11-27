@@ -327,3 +327,8 @@ if __name__ == '__main__':
     
     # Exit with proper code
     sys.exit(0 if result.wasSuccessful() else 1)
+
+def test_rule_based_target_follows_exposure_tiers():
+    df = pd.DataFrame({'net_exposure': [-2_000_000, 1_000_000, 999_999, 100_000, -50_000, 0]})
+    target = HedgeRatioPredictor().create_target_variable(df)
+    assert list(target) == [0.8, 0.8, 0.5, 0.5, 0.3, 0.3]
