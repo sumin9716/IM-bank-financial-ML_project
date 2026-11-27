@@ -15,5 +15,5 @@ def test_compute_monthly_exposure_basic():
     out = compute_monthly_exposure(df)
     assert {"company_id","month","export_amt","import_amt","net_exposure"}.issubset(set(out.columns))
     # A@2024-01: export=150 import=40 net=110
-    net_a = float(out.loc[(out["company_id"]=="A") & (out["month"]==pd.Timestamp("2024-01-31")),"net_exposure"])
+    net_a = float(out.loc[(out["company_id"]=="A") & (out["month"]==pd.Timestamp("2024-01-31")),"net_exposure"].iloc[0])
     assert abs(net_a - 110) < 1e-6
