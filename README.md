@@ -90,7 +90,7 @@ python run_pipeline.py --reports_dir /tmp/fx_reports
 
 ### 시장 데이터를 API로 받기
 
-`config/config.yml`의 `data_source`를 `fred` 또는 `ecos`로 바꾸고 `FRED_API_KEY`, `ECOS_API_KEY` 환경 변수를 설정합니다. 키 설정 여부와 응답은 `python scripts/check_api_keys.py`로 확인할 수 있습니다(키 값은 출력하지 않습니다). API 모드는 이번 정리 과정에서 실제 키로 실행해 보지 않았고, 응답 형식은 모의 응답 테스트(`tests/test_fred_loader.py`)로만 확인했습니다.
+`config/config.yml`의 `data_source`를 `fred` 또는 `ecos`로 바꾸고 `FRED_API_KEY`, `ECOS_API_KEY` 환경 변수를 설정합니다. 키 설정 여부와 응답은 `python scripts/check_api_keys.py`로 확인할 수 있습니다. 키 값은 출력하지 않고, 요청이 실패했을 때의 오류 메시지에서도 키를 `***`로 가립니다. API 모드는 실제 키로 실행해 확인하지 않았습니다. FRED 응답 처리는 모의 응답 테스트(`tests/test_fred_loader.py`)로 확인했고, ECOS 응답 처리는 테스트가 없습니다.
 
 ## 결과
 
@@ -132,9 +132,9 @@ python run_pipeline.py --reports_dir /tmp/fx_reports
 
 - 시장 데이터가 합성 값이라 손익·리스크·효과성 수치에 실무적 의미가 없습니다.
 - 헤지 비율 모델은 규칙을 재현할 뿐이고, 손익을 이용해 최적 비율을 학습하는 부분은 구현되어 있지 않습니다.
-- 노출 예측 모델은 같은 기업의 앞뒤 시점이 학습·검증에 섞이는 무작위 분할을 쓰고, 예측 시 `momentum` 특성을 학습 때와 다르게 계산합니다(주석으로 표시, 결과 재현을 위해 그대로 둠). 예측 월은 `DateOffset`으로 더해 월말이 아닌 날짜(예: 2023-07-30)가 나옵니다.
+- 노출 예측 모델은 같은 기업의 앞뒤 시점이 학습·검증에 섞이는 무작위 분할을 쓰고, 예측 시 `momentum` 특성을 학습 때와 다르게 계산합니다(`ml_models.py` 주석 참고). 예측 월은 `DateOffset`으로 더해 월말이 아닌 날짜(예: 2023-07-30)가 나옵니다.
 - `config.yml`의 일부 키(`policy.v0`·`v1`의 임계값·가중치, `ml_models`의 학습 파라미터 등)는 코드가 읽지 않습니다. 파일의 주석에 어떤 키가 쓰이는지 적어 두었습니다.
-- 기업별 IFRS9 간이 판정(`ifrs9_company_effectiveness.csv`, 손익 표준편차 ≤ 평균 절댓값 × 2)은 이번 정리에서 덮어쓰기 오류를 고친 뒤 생기는 파일이라 커밋된 `reports/`에는 없습니다.
+- 기업별 IFRS9 간이 판정(`ifrs9_company_effectiveness.csv`, 손익 표준편차 ≤ 평균 절댓값 × 2)은 커밋된 `reports/`를 만든 뒤에 추가된 출력이라 `reports/`에는 없고, 파이프라인을 실행하면 생깁니다.
 - 데이터 품질 보고서(`data_quality_report.json`)는 공백을 채운 뒤에 만들어 빠진 달이 0으로 나옵니다. 채우기 전 공백 수는 실행 로그에만 출력됩니다.
 
 ## 폴더 구조
