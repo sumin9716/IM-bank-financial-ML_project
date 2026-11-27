@@ -58,7 +58,8 @@ def parse_args():
     ap.add_argument('--reports_dir', default=str(PROJECT_ROOT/'reports'))
     ap.add_argument('--days', type=int, default=30, help='forward tenor in days')
     ap.add_argument('--spread_bps', type=float, default=10.0)
-    ap.add_argument('--clusters', type=int, default=4)
+    ap.add_argument('--clusters', type=int, default=None,
+                    help='number of K-Means/GMM clusters (overrides clustering.kmeans_k/gmm_k, default 4)')
     ap.add_argument('--profile', choices=['baseline','conservative','aggressive'],
                     help='apply overrides from the config "profiles" section')
     ap.add_argument('--tune_policy', action='store_true', help='run grid search to tune policy thresholds')
@@ -436,7 +437,8 @@ def write_ifrs9_effectiveness(spot_eom, fwd_adj, spot_daily, cfg, reports_dir) -
 
 # --- 군집·거버넌스·부가 리포트 -----------------------------------------------
 
-def write_clusters(exposure_df: pd.DataFrame, panel: pd.DataFrame, cfg: dict, reports_dir: str) -> None:
+def write_clusters(exposure_df: pd.DataFrame, panel: pd.DataFrame, cfg: dict, n_clusters: int | None,
+                   reports_dir: str) -> None:
     """기업별 마지막 달 노출로 K-Means·GMM 군집을 만든다."""
     cl = cfg.get('clustering', {})
     feats = cl.get('features', ['export_amt','import_amt','net_exposure'])
@@ -449,8 +451,9 @@ def write_clusters(exposure_df: pd.DataFrame, panel: pd.DataFrame, cfg: dict, re
         if 'corp_grade_code' in feats and 'corp_grade' in latest.columns:
             latest['corp_grade_code'] = encode_categorical(latest['corp_grade'])
 
-    clustered, km_sum, gmm_sum = run_clustering(latest, feats, k_kmeans=int(cl.get('kmeans_k', 4)),
-                                                k_gmm=int(cl.get('gmm_k', 4)))
+    k_kmeans = n_clusters or int(cl.get('kmeans_k', 4))
+    k_gmm = n_clusters or int(cl.get('gmm_k', 4))
+    clustered, km_sum, gmm_sum = run_clustering(latest, feats, k_kmeans=k_kmeans, k_gmm=k_gmm)
     save_csv(km_sum, str(Path(reports_dir)/'cluster_summary_kmeans.csv'))
     save_csv(gmm_sum, str(Path(reports_dir)/'cluster_summary_gmm.csv'))
     clustered[['company_id','cluster_kmeans','cluster_gmm']].to_csv(
@@ -561,7 +564,7 @@ def main():
     write_company_effectiveness(closed, reports_dir)
     write_option_quotes(spot_eom, cfg, reports_dir)
     ifrs9_meta = write_ifrs9_effectiveness(spot_eom, fwd_adj, spot_daily, cfg, reports_dir)
-    write_clusters(exposure_df, panel, cfg, reports_dir)
+    write_clusters(exposure_df, panel, cfg, args.clusters, reports_dir)
     write_governance(args, cfg, reports_dir, ifrs9_meta)
     write_ml_report(ml_models, panel, cfg, exposure_df, pnl_df, reports_dir)
     write_company_risk(args, reports_dir)
