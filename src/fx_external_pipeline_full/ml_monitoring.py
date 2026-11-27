@@ -9,7 +9,6 @@ import logging
 from typing import Dict, Any, List
 from pathlib import Path
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 logger = logging.getLogger(__name__)
 
