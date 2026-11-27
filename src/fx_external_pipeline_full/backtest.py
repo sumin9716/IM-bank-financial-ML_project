@@ -114,9 +114,9 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
                     open_positions.append({
                         company_col: cid,
                         "trade_month": last_month,
-                        "fix_month": None,  # 미체결
+                        "fix_month": pd.NaT,  # 미체결
                         "trade_date_bd": trade_bd,
-                        "fix_date_bd": None,  # 미체결
+                        "fix_date_bd": pd.NaT,
                         "notional_usd": float(notional_usd),
                         "pnl_krw": 0.0,  # 미실현
                         "status": "open"
