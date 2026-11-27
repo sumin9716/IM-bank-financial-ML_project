@@ -106,10 +106,10 @@ def holiday_settings(cfg: dict) -> tuple[tuple, str]:
 
 
 def under_reports_dir(path_cfg: str, reports_dir: str) -> str:
-    """설정의 'reports/...' 경로를 --reports_dir 아래로 옮긴다."""
+    """설정의 'reports/...' 경로는 --reports_dir 아래로 옮기고, 그 밖의 상대 경로는 프로젝트 루트 기준으로 본다."""
     if str(path_cfg).startswith('reports/'):
         return str(Path(reports_dir) / Path(path_cfg).relative_to('reports'))
-    return path_cfg
+    return resolve_path(path_cfg)
 
 
 def _fred_range(cfg: dict):
