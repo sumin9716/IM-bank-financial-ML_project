@@ -299,6 +299,11 @@ class ExposureForecaster:
                 n_estimators=100, max_depth=8, learning_rate=0.1, 
                 random_state=42, n_jobs=-1
             )
+        else:
+            logger.warning(f"Model {model_type} not available for exposure forecasting. Using RandomForest.")
+            self.model = RandomForestRegressor(
+                n_estimators=100, max_depth=12, random_state=42, n_jobs=-1
+            )
     
     def prepare_features(self, exposure_df: pd.DataFrame, 
                         window_months: int = 12) -> pd.DataFrame:
