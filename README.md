@@ -1,497 +1,161 @@
-# 🚀 ML-Powered FX Hedging & Risk Analytics Platform
+# 기업 환노출 헤지 분석 파이프라인
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![ML Models](https://img.shields.io/badge/ML-Random%20Forest%20%7C%20XGBoost-green.svg)](https://scikit-learn.org/)
-[![Risk Analytics](https://img.shields.io/badge/Risk-VaR%20%7C%20ES%20%7C%20Stress%20Testing-red.svg)](https://en.wikipedia.org/wiki/Value_at_risk)
+기업별 월 수출·수입 금액으로 달러 순노출을 계산하고, 헤지 비율 정책(규칙 기반·트리 모델)을 적용한 1개월 선도환 헤지를 백테스트한 뒤 VaR/ES, IFRS9 헤지 효과성, 기업 군집, 옵션 이론가를 CSV와 그림으로 저장하는 파이썬 배치 파이프라인입니다.
 
-**차세대 머신러닝 기반 외환 위험 관리 및 고객 이탈 예측 플랫폼**
+iM뱅크 iM DiGital Banker Academy(데이터 분석 전문가 양성 과정) 6기 5조의 팀 프로젝트입니다(2025년 10월).
 
-## 🎯 프로젝트 개요
+## 배경과 목표
 
-이 프로젝트는 **트리 기반 머신러닝 모델**을 활용한 차세대 외환 위험 관리 시스템입니다. Random Forest와 XGBoost 모델을 통해 효과적인 헤징 전략을 수립하고, 17,000+ 기업의 위험 분석 데이터를 기반으로 고객 이탈을 예측합니다.
+수출입 기업은 달러 수입과 지출 시점이 달라 환율 변동에 노출됩니다. 팀이 기획 단계에서 정리한 문제는 중소·중견기업의 헤지 비중이 노출에 비해 낮다는 점, 그리고 은행의 선물환 견적·체결과 IFRS9 헤지회계 효과성 검증·문서화가 수작업에 의존한다는 점이었습니다.
 
-### 🔥 핵심 혁신 기능
+이 프로젝트는 기업별 월 수출입 패널과 시장 지표를 연결해 다음 과정을 한 번에 실행하는 것을 목표로 했습니다.
 
-- **🧠 트리 기반 ML 모델**: Random Forest & XGBoost 기반 헤지 비율 예측 (R² = 1.0)
-- **📊 대규모 위험 분석**: 17,092개 기업-월별 VaR/ES 및 스트레스 테스트
-- **🎯 고객 이탈 예측**: 앙상블 ML 모델 + SHAP 해석성 분석
-- **📈 실시간 데이터**: 한국은행 ECOS & FRED API 연동
-- **⚡ 자동화 파이프라인**: 원클릭 위험 분석 및 리포팅
-- **🔍 고급 분석**: 데이터 품질 검증, 클러스터링, 백테스팅
-- **⚖️ IFRS9 완전 준수**: 자동화된 헤지 효과성 테스트
-- **📋 기업급 리포팅**: 실시간 CSV/Excel 호환 결과 생성
+- 기업·월 단위 순노출(수출 - 수입) 계산
+- 노출 규모와 시장 신호에 따른 헤지 비율 제안
+- CIP(커버드 금리평가) 선도환율로 월말 체결·익월말 정산 헤지 백테스트
+- 손익 기반 VaR/ES, 기업별 미헤지 노출의 VaR/ES와 극단 시나리오 손익
+- IFRS9 헤지 효과성(Dollar-offset 비율, 회귀 R²) 판정과 변경 이력 기록
+- K-Means/GMM 기업 군집, Garman-Kohlhagen 통화옵션 이론가
 
-### 🎓 ML 모델 성능
+## 처리 흐름
 
-| 모델 | 작업 | R² Score | 특징 |
-|------|------|----------|------|
-| Random Forest | 헤지 비율 예측 | 1.0000 | 완벽한 예측 정확도 |
-| XGBoost | 노출량 예측 | 0.5842 | 높은 일반화 성능 |
-| Ensemble Models | 고객 이탈 예측 | 0.95+ | SHAP 해석성 지원 |
+```
+data/panel_base.csv ──► 월별 순노출 집계 ──► 월 공백 채우기(0)
+                                              │
+data/external/*.csv ──► 월말 환율·금리 ────────┤
+ (또는 FRED/ECOS API)                          ▼
+                                    헤지 비율 결정
+                                    학습된 ML 모델, 없으면 v1 규칙,
+                                    ML 예측 실패·특성 부족 시 v0 규칙
+                                              │
+                          CIP 선도환율 + 스프레드 ▼
+                                    월말 체결 → 익월말 정산 백테스트
+                                              │
+      ┌──────────────┬──────────────┬─────────┴────┬──────────────┬──────────────┐
+      ▼              ▼              ▼              ▼              ▼              ▼
+  기업별 요약     VaR/ES        IFRS9 효과성     K-Means/GMM     ML 성과 리포트   기업별 리스크 표
+                                                                 (그림 포함)
+```
 
-## 🚀 빠른 시작
+진입점은 `run_pipeline.py`이고, 계산 모듈은 `src/fx_external_pipeline_full/`에 있습니다.
 
-### 1. 환경 설정
+| 단계 | 모듈 | 내용 |
+|---|---|---|
+| 노출 | `exposure.py`, `data_quality.py` | 월말 기준 순노출 집계, 기업별 빠진 달 탐지·채우기, 품질 보고서 |
+| 시장 데이터 | `external_loader.py`, `fred_loader.py`, `ecos_loader.py`, `holiday_calendar.py` | CSV 또는 FRED·ECOS API, 한국·미국 휴일 캐시 |
+| 헤지 정책 | `policy.py`, `features.py`, `ml_models.py`, `policy_tuner.py` | v0 규칙(노출 구간별 비율), v1 규칙(변동성·추세·캐리 신호), 랜덤 포레스트 헤지 비율·노출 예측, v1 임계값 격자 탐색 |
+| 가격·백테스트 | `pricing.py`, `backtest.py`, `pricing_option.py` | CIP 선도환율, 스프레드, NDF 정산 손익, 만기 일수 보정, Garman-Kohlhagen |
+| 리스크 | `risk.py`, `company_risk_analytics.py` | 역사적 VaR/ES, 기업·월별 미헤지 노출 VaR/ES와 시나리오 손익 |
+| 회계·거버넌스 | `hedge_effectiveness.py`, `governance.py` | Dollar-offset·회귀 통계, 분기 표본 규칙, 정책·효과성 스냅샷과 변경 이력 |
+| 분석·리포트 | `clustering.py`, `ml_monitoring.py`, `reporting.py` | 군집, ML 지표·특성 중요도·그림, CSV 저장 |
+
+## 기술 스택
+
+Python 3.10 이상(`X | None` 타입 표기 사용), pandas 2.2 이상, NumPy, SciPy, scikit-learn(랜덤 포레스트, K-Means, GMM), XGBoost·LightGBM(선택), matplotlib, holidays, PyYAML, requests, pytest
+
+## 실행 방법
+
+Python 3.13 + pandas 2.3.3 / 3.1.1 환경에서 아래 명령으로 확인했습니다.
 
 ```bash
-# 저장소 클론
-git clone https://github.com/your-username/ML_project.git
-cd ML_project
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
 
-# 패키지 설치
-pip install -r requirements.txt
-
-# 데이터 유효성 검사
-python validate_inputs.py
+python validate_inputs.py          # 입력 CSV와 필수 열 확인
+python -m pytest -q                # 단위 테스트
+python run_pipeline.py             # 결과를 reports/에 저장(기존 파일을 덮어씀)
 ```
 
-### 2. ML 모델 실행
+저장소의 결과를 그대로 두고 실행해 보려면 출력 폴더를 바꿉니다. 이 저장소의 데이터로 약 1분 20초가 걸렸습니다(Linux, Python 3.13, pandas 2.3.3).
 
 ```bash
-# 🧠 머신러닝 헤징 전략 분석 (트리 모델 포함)
-python run_pipeline.py --config config/config.yml
-
-# 📊 대규모 기업 위험 분석 생성
-python simple_risk_analytics.py
-
-# 🎯 고객 이탈 예측 분석
-jupyter notebook 이탈율.ipynb
+python run_pipeline.py --reports_dir /tmp/fx_reports
 ```
 
-### 3. 전문가 모드
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `--config` | `config/config.yml` | 설정 파일 |
+| `--panel`, `--spot`, `--kr`, `--us` | `data/` 아래 CSV | 입력 파일 경로 |
+| `--reports_dir` | `reports/` | 출력 폴더 |
+| `--days` | 30 | 선도 만기(일) |
+| `--spread_bps` | 10.0 | 선도환율에 더하는 스프레드(bp) |
+| `--clusters` | 설정값 또는 4 | K-Means·GMM 군집 수 |
+| `--tune_policy` | 꺼짐 | v1 정책 임계값 격자 탐색 → `policy_tuning_results.csv` |
+| `--freeze_policy`, `--freeze_ifrs9` | 꺼짐 | 정책·효과성 스냅샷을 `reports/_artifacts/`에 저장하고 변경 이력 CSV에 한 줄 추가 |
+| `--actor`, `--changelog_note`, `--ifrs9_note` | | 변경 이력에 남길 작성자·메모 |
+| `--profile` | | 설정 파일 `profiles` 절의 값을 덮어씀(현재 설정에는 `profiles` 절이 없음) |
 
-```bash
-# 🔬 고급 ML 파이프라인 (전체 기능)
-python run_pipeline.py --profile advanced --tune_policy
+`bash run_example.sh`는 입력 확인 후 파이프라인을 실행해 `reports/`를 덮어씁니다. 입력 확인이 실패하면 `make_external_templates.py`로 `data/external/`의 합성 시장 데이터를 먼저 다시 만듭니다.
 
-# 📈 백테스트 + IFRS9 효과성 테스트
-python run_pipeline.py --freeze_ifrs9 --ifrs9_note "AI 모델 검증"
+### 시장 데이터를 API로 받기
 
-# 🎛️ 사용자 정의 분석
-python run_pipeline.py --days 90 --clusters 8 --spread_bps 20.0
+`config/config.yml`의 `data_source`를 `fred` 또는 `ecos`로 바꾸고 `FRED_API_KEY`, `ECOS_API_KEY` 환경 변수를 설정합니다. 키 설정 여부와 응답은 `python scripts/check_api_keys.py`로 확인할 수 있습니다. 키 값은 출력하지 않고, 요청이 실패했을 때의 오류 메시지에서도 키를 `***`로 가립니다. API 모드는 실제 키로 실행해 확인하지 않았습니다. FRED 응답 처리는 모의 응답 테스트(`tests/test_fred_loader.py`)로 확인했고, ECOS 응답 처리는 테스트가 없습니다.
+
+## 결과
+
+아래 숫자는 저장소에 커밋된 `data/`와 `reports/` 파일에서 읽은 값입니다. **시장 데이터(`data/external/*.csv`)는 실제 환율·금리가 아니라 `make_external_templates.py`가 난수 시드 42로 만든 합성 값**(USD/KRW 약 1,100원대)이므로, 손익·VaR·IFRS9 수치는 파이프라인 동작 확인용이며 실제 시장 성과를 뜻하지 않습니다.
+
+| 항목 | 값 | 출처 |
+|---|---|---|
+| 입력 패널 | 3,411개 기업, 2022-01 ~ 2024-12, 17,227행 | `data/panel_base.csv` |
+| 공백 채운 뒤 기업·월 | 21,441행(빈 달 4,214개를 0으로 추가) | `reports/exposure.csv` |
+| 헤지 비율 분포 | 0.0: 4,349 / 0.3: 9,054 / 0.5: 6,498 / 0.8: 1,540 | `reports/exposure.csv` |
+| 백테스트 거래 | 정산 13,713건(2,132개 기업), 미체결 3,379건 | `reports/pnl_by_trade.csv`, `reports/summary_company.csv`, `reports/open_positions.csv` |
+| IFRS9 월(M) | Dollar-offset 0.998, R² 0.999994 → Effective(기준 0.85~1.15, R² 0.90 이상) | `reports/ifrs9_effectiveness_summary.csv` |
+| IFRS9 분기(Q) | Dollar-offset 0.9997, R² 0.999995 → Effective | 같은 파일 |
+| 헤지 비율 모델(랜덤 포레스트) | 검증 R² 1.000 | `reports/ml_performance_report_model_metrics.csv` |
+| 3개월 뒤 순노출 예측(랜덤 포레스트) | 검증 R² 0.584, MAE 319,829 | 같은 파일, 예측 546개 기업 `reports/future_exposure_forecast.csv` |
+| 기업별 리스크 표 | 3,400개 기업·17,092행, 등급 Very Low 17,065 / Low 20 / Medium 7 | `reports/company_risk_analytics.csv` |
+| 노출 규모 구분 | XS 14,336 / S 1,216 / M 1,205 / L 198 / XL 137 | 같은 파일 |
+| 군집(4개) | K-Means 3,367 / 40 / 1 / 3, GMM 1,554 / 242 / 1,171 / 444 | `reports/cluster_labels.csv` |
+
+그 밖에 `reports/ml_dashboard/`에 특성 중요도, 헤지 비율 비교, 손익 요약 그림이 있고, `reports/options_summary.csv`에 만기 30·90·180일, 행사가 95·100·105%의 콜·풋 이론가가 있습니다.
+
+### 결과를 읽을 때 주의할 점
+
+- **헤지 비율 모델의 R² 1.0은 예측력이 아닙니다.** 학습 타깃이 |순노출| 구간(10만·100만)별 규칙 비율(0.3/0.5/0.8)이고 특성에 노출 크기와 구간이 들어 있어, 모델은 그 규칙을 그대로 다시 배웁니다(`ml_models.py`의 `RULE_RATIO_BY_TIER`).
+- **IFRS9 R²가 1에 가까운 이유**: 회귀가 환율 수준과 선도환율 수준 사이에서 이뤄지고, 선도환율은 같은 환율에 (1 + 미국 금리 × 기간) / (1 + 한국 금리 × 기간)과 스프레드를 곱한 값이기 때문입니다.
+- `ml_performance_report_evaluation_results.json`의 규칙 기반 평균 헤지 비율(0.051)과 ML 평균(0.336) 차이는 성능 개선이 아니라 기준이 다르기 때문입니다. 비교용 규칙 기반 정책은 `config.yml`의 `policy.v0` 값을 읽지 못하고 코드 기본값(100만·500만, 0/0.5/0.8)을 쓰며, 공백을 채우기 전 패널에 적용됩니다.
+- VaR/ES(`reports/var_es_summary.csv`)는 정산월 순으로 정렬한 0이 아닌 손익 중 **마지막 252건**으로 계산합니다(252영업일이 아님, `var_es_summary_US.csv`는 500건). 커밋된 결과에서 마지막 252건은 모두 2024-12 정산 거래이고 전부 이익이어서, VaR와 ES가 손실이 아닌 양수(12.87)로 같게 나옵니다. 기간에 걸친 손실 위험을 나타내는 값이 아닙니다.
+
+## 팀과 역할
+
+5명이 함께한 교육 과정 팀 프로젝트입니다. 이 저장소의 커밋 기록에는 두 작성자가 있습니다.
+
+- `campus4 D052`: 초기 코드 업로드와 파이프라인·ML 모델·리스크 분석 코드 대부분
+- `sumin9716`: README 작성과 파일 정리, 이후 코드 정리와 리팩터링
+
+팀원별 역할 분담은 커밋 기록만으로는 확인할 수 없어 적지 않았습니다.
+
+## 한계
+
+- 시장 데이터가 합성 값이라 손익·리스크·효과성 수치에 실무적 의미가 없습니다.
+- 헤지 비율 모델은 규칙을 재현할 뿐이고, 손익을 이용해 최적 비율을 학습하는 부분은 구현되어 있지 않습니다.
+- 노출 예측 모델은 같은 기업의 앞뒤 시점이 학습·검증에 섞이는 무작위 분할을 쓰고, 예측 시 `momentum` 특성을 학습 때와 다르게 계산합니다(`ml_models.py` 주석 참고). 예측 월은 `DateOffset`으로 더해 월말이 아닌 날짜(예: 2023-07-30)가 나옵니다.
+- `company_risk_analytics.csv`의 `historical_volatility_pct`(7.37)는 월말 환율 수익률에 일별 기준인 √252를 곱해 연환산한 값입니다. 월간 기준(√12)으로 계산하면 약 1.61입니다. 헤지 비율 모델의 `volatility_20d`·`volatility_60d` 특성도 월말 값 20·60개에 √252를 곱합니다.
+- `config.yml`의 일부 키(`policy.v0`·`v1`의 임계값·가중치, `ml_models`의 학습 파라미터 등)는 코드가 읽지 않습니다. 파일의 주석에 어떤 키가 쓰이는지 적어 두었습니다.
+- 기업별 IFRS9 간이 판정(`ifrs9_company_effectiveness.csv`, 손익 표준편차 ≤ 평균 절댓값 × 2)은 커밋된 `reports/`를 만든 뒤에 추가된 출력이라 `reports/`에는 없고, 파이프라인을 실행하면 생깁니다.
+- 데이터 품질 보고서(`data_quality_report.json`)는 공백을 채운 뒤에 만들어 빠진 달이 0으로 나옵니다. 채우기 전 공백 수는 실행 로그에만 출력됩니다.
+
+## 폴더 구조
+
 ```
-
-### 4. 원클릭 실행
-
-```bash
-# 🚀 모든 분석을 한 번에 (권장)
-bash run_example.sh  # 또는
-python make_external_templates.py && python run_pipeline.py
+.
+├── run_pipeline.py              # 파이프라인 진입점
+├── validate_inputs.py           # 입력 CSV 확인
+├── make_external_templates.py   # 합성 시장 데이터 생성
+├── run_example.sh               # 입력 확인 → 파이프라인 실행
+├── config/
+│   ├── config.yml               # 데이터 소스, 정책, 리스크, IFRS9, ML 설정
+│   └── logging.yml
+├── data/
+│   ├── panel_base.csv           # 기업·월별 수출입 금액
+│   ├── external/                # 월말 USD/KRW, 한국·미국 금리(합성)
+│   └── reference/holidays_cache/  # 2018~2025 한국·미국 휴일
+├── src/fx_external_pipeline_full/ # 계산 모듈(위 표 참고)
+├── scripts/check_api_keys.py    # FRED·ECOS API 키 확인
+├── tests/                       # pytest 단위 테스트(합성 데이터)
+├── reports/                     # 커밋된 실행 결과
+└── docs/DEVELOPMENT.md          # 개발·유지보수 메모
 ```
-
-## 📁 프로젝트 구조
-
-```
-ML_project/
-├── 🧠 머신러닝 & 분석 모델
-│   ├── 이탈율.ipynb                    # 🎯 고객 이탈 예측 (앙상블 ML)
-│   ├── simple_risk_analytics.py       # 📊 대규모 기업 위험 분석
-│   └── company_risk_analytics.csv     # 📋 17,092 기업 위험 데이터
-├── 🔧 핵심 엔진
-│   ├── run_pipeline.py               # 🚀 메인 ML 파이프라인
-│   ├── run_pipeline_debug.py         # 🔍 고급 디버깅
-│   ├── make_external_templates.py    # 📊 데이터 전처리
-│   └── validate_inputs.py            # ✅ 데이터 품질 검증
-├── ⚙️ 설정 & 구성
-│   ├── config/
-│   │   ├── config.yml               # 🎛️ 메인 파이프라인 설정
-│   │   └── logging.yml              # 📝 로깅 설정
-│   └── requirements.txt             # 📦 패키지 의존성
-├── 📊 데이터 레이어
-│   ├── data/
-│   │   ├── panel_base.csv           # 📈 기본 패널 데이터
-│   │   └── external/                # 🌐 외부 경제 데이터
-│   │       ├── spot_usdkrw_eom.csv  # 💱 USD/KRW 환율
-│   │       ├── kr_rates_month.csv   # 🏦 한국 금리
-│   │       └── us_rates_month.csv   # 🇺🇸 미국 금리
-├── 🤖 ML 소스코드 (src/fx_external_pipeline_full/)
-│   ├── backtest.py                  # 📈 백테스트 엔진
-│   ├── clustering.py                # 🧩 ML 클러스터링
-│   ├── exposure.py                  # 💰 노출량 계산
-│   ├── features.py                  # 🎯 특성 엔지니어링
-│   ├── policy.py                    # 📋 ML 헤징 정책
-│   ├── pricing.py                   # 💲 가격 모델링
-│   ├── pricing_option.py            # 📊 옵션 가격 모델
-│   ├── hedge_effectiveness.py       # ⚖️ IFRS9 효과성 테스트
-│   ├── risk.py                      # 🔴 리스크 측정 (VaR/ES)
-│   ├── governance.py                # 🏛️ 거버넌스 관리
-│   ├── external_loader.py           # 📥 데이터 로더
-│   ├── ecos_loader.py              # 🏦 한국은행 API
-│   ├── fred_loader.py              # 🇺🇸 FRED API
-│   └── utils.py                     # 🛠️ 유틸리티
-├── 🧪 테스트 스위트
-│   ├── test_backtest.py             # 📈 백테스트 테스트
-│   ├── test_clustering.py           # 🧩 클러스터링 테스트
-│   ├── test_pricing_*.py            # 💲 가격 모델 테스트
-│   └── test_risk.py                 # 🔴 리스크 테스트
-└── 📄 결과 & 리포트
-    └── reports/                     # 📊 ML 분석 결과 저장소
-```
-
-### 🎯 핵심 파일 설명
-
-| 파일 | 기능 | ML 기술 |
-|------|------|---------|
-| `이탈율.ipynb` | 고객 이탈 예측 | RF, XGBoost, LightGBM, CatBoost |
-| `simple_risk_analytics.py` | 기업 위험 분석 | 자동화된 VaR/ES 계산 |
-| `company_risk_analytics.csv` | 위험 데이터베이스 | 17,092개 기업-월 위험 프로파일 |
-| `clustering.py` | 고객 세분화 | K-Means, GMM 클러스터링 |
-| `features.py` | 특성 엔지니어링 | 자동 특성 생성 및 선택 |
-
-## 🛠️ 고급 사용법
-
-### 🧠 ML 모델 최적화
-
-트리 기반 모델의 하이퍼파라미터를 자동으로 튜닝합니다:
-
-```bash
-# 🎯 ML 정책 자동 최적화
-python run_pipeline.py --tune_policy --ml_enhanced
-
-# 🔬 고급 특성 엔지니어링 활성화
-python run_pipeline.py --enable_features --feature_selection auto
-```
-
-### 📊 ML 분석 결과
-
-17,000+ 기업 데이터를 활용한 고급 분석:
-
-```bash
-# 📈 전체 기업 포트폴리오 위험 분석
-python simple_risk_analytics.py --all_companies --stress_scenarios 5
-
-# 🎯 특정 업종별 위험 프로파일링
-python simple_risk_analytics.py --industry "제조업" --cluster_analysis
-```
-
-### 🤖 고객 이탈 예측 실행
-
-```bash
-# 🧪 고급 앙상블 모델 실행
-jupyter nbconvert --execute 이탈율.ipynb --to html
-
-# 📊 SHAP 해석성 분석 포함
-python -c "
-import pandas as pd
-import joblib
-from src.fx_external_pipeline_full.clustering import ChurnPredictor
-predictor = ChurnPredictor()
-predictor.run_analysis()
-"
-```
-
-### ⚖️ IFRS9 ML 검증
-
-머신러닝 모델 기반 헤지 효과성 자동 검증:
-
-```bash
-# 🤖 ML 모델 효과성 테스트
-python run_pipeline.py --freeze_ifrs9 --ml_validation \
-    --ifrs9_note "Random Forest 헤지 비율 검증 Q4 2024"
-
-# 📈 백테스트 + ML 성능 분석
-python run_pipeline.py --backtest_ml --performance_metrics
-```
-
-### 🎛️ 고급 파라미터 튜닝
-
-```bash
-# 🧠 ML 모델 세부 조정
-python run_pipeline.py \
-    --ml_models "rf,xgb,lgb" \
-    --cross_validation 5 \
-    --feature_importance shap \
-    --ensemble_method voting
-
-# 📊 대규모 분석 최적화
-python run_pipeline.py \
-    --days 180 \
-    --clusters 12 \
-    --min_samples_cluster 500 \
-    --risk_scenarios "conservative,balanced,aggressive"
-```
-
-### 🔄 자동화 워크플로우
-
-```bash
-# 🚀 일일 자동 분석 파이프라인
-python run_pipeline.py --schedule daily --auto_report --slack_notification
-
-# 📈 월별 종합 리포트 생성
-python run_pipeline.py --monthly_report --include_churn_analysis --executive_summary
-```
-
-## 🧠 ML 모델 아키텍처
-
-### 1. 🌳 트리 기반 예측 모델
-#### Random Forest 헤지 비율 예측
-- **성능**: R² = 1.0000 (완벽한 예측 정확도)
-- **특징**: 앙상블 기법으로 과적합 방지
-- **용도**: 실시간 헤지 비율 결정
-
-#### XGBoost 노출량 예측  
-- **성능**: R² = 0.5842 (높은 일반화 성능)
-- **특징**: 그래디언트 부스팅 최적화
-- **용도**: 미래 노출량 예측
-
-### 2. 📊 고객 이탈 예측 시스템
-#### 앙상블 ML 모델
-```python
-모델 구성:
-├── Random Forest Classifier
-├── XGBoost Classifier  
-├── LightGBM Classifier
-├── CatBoost Classifier
-└── Voting Classifier (앙상블)
-```
-
-#### SHAP 해석성 분석
-- **특성 중요도**: 고객별 이탈 요인 분석
-- **예측 근거**: 투명한 ML 의사결정
-- **비즈니스 인사이트**: 실행 가능한 개선 방안
-
-### 3. 🎯 고급 데이터 처리
-
-#### 특성 엔지니어링 (`features.py`)
-```python
-자동 생성 특성:
-├── 📈 변동성 지표 (RV windows: 20, 60일)
-├── 📊 이동평균 (MA windows: 20, 60일) 
-├── 💱 캐리 트레이드 신호
-├── 🔄 모멘텀 지표
-└── 📋 위험 스코어 (VaR/ES 기반)
-```
-
-#### 클러스터링 분석 (`clustering.py`)
-- **K-Means**: 고객 세분화 (기본 6개 클러스터)
-- **GMM**: 확률적 클러스터 할당
-- **고객 프로파일**: 위험 성향별 그룹화
-
-### 4. 📊 대규모 위험 분석 엔진
-
-#### 기업 위험 데이터베이스
-```
-company_risk_analytics.csv 구조:
-├── 📋 17,092개 기업-월별 레코드
-├── 🏢 3,400개 고유 기업
-├── 📅 5개월 시계열 데이터  
-├── 💰 VaR/ES 위험 측정값
-├── 🎯 스트레스 테스트 결과
-└── 📈 헤지 권장사항
-```
-
-#### 실시간 위험 계산
-- **VaR (95%, 99%)**: 일일 최대 예상 손실
-- **Expected Shortfall**: 극단 상황 예상 손실  
-- **스트레스 테스트**: 5개 시나리오 분석
-- **위험 등급**: Very Low ~ Very High (자동 분류)
-
-### 5. 🔄 자동화 파이프라인
-
-#### 데이터 품질 검증
-```python
-검증 단계:
-├── ✅ 월별 연속성 검사
-├── ✅ 결측값 자동 보간
-├── ✅ 만기 일관성 검증
-├── ✅ 이상값 탐지 & 처리
-└── ✅ 데이터 타입 검증
-```
-
-#### API 연동 시스템
-- **ECOS API**: 한국은행 실시간 금리 데이터
-- **FRED API**: 미국 경제지표 자동 수집
-- **자동 업데이트**: 일일/주별 데이터 갱신
-
-## ⚙️ 설정 파일 (`config.yml`)
-
-### 데이터 소스 설정
-```yaml
-data_source:
-  spot: csv        # csv | fred
-  rates_us: csv    # csv | fred | ecos
-  rates_kr: csv    # csv | ecos
-```
-
-### 헤징 정책 설정
-```yaml
-policy:
-  version: v0              # v0 (기본) | v1 (고급)
-  size_thresholds: [0.01, 0.1]    # 노출량 임계값 (데이터에 맞게 조정)
-  ratios: [0.3, 0.5, 0.8]         # 헤징 비율 [작은노출, 중간노출, 큰노출]
-  features:                        # v1 버전용 고급 기능
-    rv_windows: [20, 60]
-    ma_windows: [20, 60]
-```
-
-### IFRS9 효과성 기준
-```yaml
-ifrs9:
-  dollar_offset_bounds: [0.85, 1.15]
-  regression_r2_threshold: 0.90
-  sampling: { period: "Q", rule: "prev_business_day" }
-```
-
-## � AI 분석 결과
-
-### 🎯 핵심 분석 결과물
-
-#### 📋 기업 위험 분석 데이터베이스
-```
-company_risk_analytics.csv (17,092 records)
-├── 🏢 Company_ID: 3,400개 고유 기업
-├── 📅 Date: 2024.06~2024.10 (5개월)
-├── 💰 VaR_95/VaR_99: 일일 위험값
-├── 🔴 Expected_Shortfall: 극한 위험값
-├── 📊 Stress_Test_Results: 시나리오 분석
-├── 🎯 Risk_Rating: Very Low~Very High
-├── 📈 Hedge_Recommendation: ML 추천
-└── 💱 Exposure_Category: XS/S/M/L/XL
-```
-
-#### 🤖 ML 모델 예측 결과
-```
-reports/ 폴더 구조:
-├── 📈 ml_predictions/
-│   ├── hedge_ratios_rf.csv      # Random Forest 헤지 비율
-│   ├── exposure_forecast_xgb.csv # XGBoost 노출량 예측
-│   └── feature_importance.csv    # 특성 중요도 분석
-├── 🎯 churn_analysis/
-│   ├── churn_probabilities.csv   # 고객 이탈 확률
-│   ├── churn_factors.csv         # SHAP 해석 결과
-│   └── risk_segmentation.csv     # 위험 기반 세분화
-└── 📊 comprehensive_reports/
-    ├── backtest_performance.csv  # 백테스트 성과
-    ├── ifrs9_effectiveness.csv   # IFRS9 효과성
-    └── governance_log.csv        # 거버넌스 추적
-```
-
-### 📈 성과 지표 대시보드
-
-| 지표 | ML 모델 | 기존 방법 | 개선률 |
-|------|---------|----------|--------|
-| 헤지 정확도 | 99.8% | 85.2% | +14.6%p |
-| 위험 예측 정확도 | 94.1% | 78.5% | +15.6%p |
-| 처리 속도 | 2.3초 | 45.2초 | 19.6x 빠름 |
-| 이탈 예측 정확도 | 96.8% | 72.1% | +24.7%p |
-
-### 🎯 비즈니스 인사이트
-
-#### 고객 위험 분포
-```
-위험 등급별 기업 분포:
-├── Very Low Risk: 99.8% (17,058개)
-├── Low Risk: 0.1% (18개)  
-├── Medium Risk: 0.08% (14개)
-├── High Risk: 0.01% (2개)
-└── Very High Risk: 0% (0개)
-```
-
-#### 노출량 카테고리 분포
-```
-노출 규모별 분포:
-├── XS (초소형): 84.0% (14,357개)
-├── S (소형): 11.2% (1,914개)
-├── M (중형): 3.1% (530개)  
-├── L (대형): 1.4% (239개)
-└── XL (초대형): 0.3% (52개)
-```
-
-### 📊 실시간 모니터링 지표
-
-#### 모델 성능 추적
-- **예측 정확도**: 실시간 R² 스코어 모니터링
-- **드리프트 탐지**: 데이터 분포 변화 감지
-- **특성 안정성**: 특성 중요도 변화 추적
-- **비즈니스 임팩트**: ROI 및 비용 절감 측정
-
-## 🔧 API 연동 설정
-
-### FRED API (미국 경제데이터)
-```bash
-export FRED_API_KEY="your_fred_api_key"
-```
-
-### ECOS API (한국은행)
-```bash
-export ECOS_API_KEY="your_ecos_api_key"
-```
-
-## 🧪 테스트 실행
-
-```bash
-# 전체 테스트 실행
-python -m pytest tests/
-
-# 특정 모듈 테스트
-python -m pytest tests/test_pricing.py
-python -m pytest tests/test_hedge_effectiveness.py
-```
-
-## ⚠️ 중요 사항
-
-### 데이터 설정
-- 현재 프로젝트는 작은 규모의 샘플 데이터에 최적화되어 있습니다
-- 실제 운영 데이터 사용시 `config.yml`의 `policy.size_thresholds` 값을 적절히 조정하세요
-- 헤징 정책 버전은 `v0` (단순) 또는 `v1` (고급) 중 선택 가능합니다
-
-### 문제 해결
-```bash
-# 파이프라인 실행 중 오류 발생시
-python run_pipeline_debug.py  # 상세 디버그 정보 확인
-
-# 데이터 파일 검증
-python validate_inputs.py     # 필수 데이터 파일 존재 확인
-
-# CSV 파일 처리 (필요시)
-python filter_csv.py         # 특정 컬럼만 추출
-```
-
-## 📋 요구사항
-
-- Python 3.8+
-- pandas >= 2.0
-- numpy >= 1.24
-- scikit-learn >= 1.3
-- PyYAML >= 6.0
-- scipy >= 1.10
-- holidays >= 0.34
-
-## 🔥 머신러닝 혁신 업데이트 로그
-
-### v3.0 - ML Revolution (2024-12-19)
-- **🧠 트리 기반 ML 모델 추가**: Random Forest & XGBoost 헤지 예측 (R²=1.0)
-- **📊 대규모 위험 분석**: 17,092개 기업 위험 데이터베이스 구축
-- **🎯 고객 이탈 예측**: 앙상블 ML + SHAP 해석성 분석
-- **🤖 자동화 파이프라인**: ML 기반 의사결정 시스템 완성
-- **📈 성능 혁신**: 19.6배 빠른 처리속도, +24.7%p 예측 정확도 향상
-
-### v2.5 - Enterprise Scale (2024-11-15)  
-- **🏢 기업급 확장성**: 3,400개 기업 동시 처리 지원
-- **📊 실시간 리포팅**: 자동화된 CSV/Excel 호환 결과 생성
-- **🔄 API 연동**: ECOS & FRED 실시간 데이터 수집
-- **⚡ 성능 최적화**: 메모리 사용량 60% 절감
-
-### v2.0 - Foundation (2024-10-14)
-- **🔧 파이프라인 안정화**: 전체 아키텍처 재설계
-- **🐛 디버그 시스템**: 상세 실행 추적 및 오류 진단
-- **⚙️ 설정 자동화**: 데이터 규모별 파라미터 자동 조정
-- **📚 문서화**: 포괄적 사용자 가이드 및 API 문서
-
-### 🎯 핵심 혁신 성과
-- ✅ **ML 예측 정확도**: 기존 대비 평균 20% 향상
-- ✅ **처리 속도**: 19.6배 성능 개선 (45초 → 2.3초)  
-- ✅ **자동화율**: 수동 작업 90% 자동화 달성
-- ✅ **확장성**: 17,000+ 기업 실시간 분석 지원
-- ✅ **해석성**: SHAP 기반 투명한 ML 의사결정
-
-### 🚀 차세대 로드맵
-- **🔮 실시간 예측**: 스트리밍 데이터 기반 즉시 ML 예측
-- **🌐 클라우드 배포**: AWS/Azure 기반 확장 가능한 아키텍처  
-- **📱 모바일 대시보드**: 실시간 위험 모니터링 앱
-- **🤖 고급 분석**: 딥러닝 기반 고도화된 예측 모델
-
-## 📄 라이센스
-
-이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.

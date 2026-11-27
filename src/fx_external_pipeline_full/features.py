@@ -35,37 +35,34 @@ def compute_features(spot_daily: pd.Series|None,
                      r_us_eom: pd.Series,
                      r_kr_eom: pd.Series,
                      cfg: dict) -> pd.DataFrame:
-    """Return monthly (EOM-indexed) feature panel: rv20, rv60, ma20, ma60, carry.
+    """월말 인덱스의 v1 정책 신호 표(rv20, rv60, ma20, ma60, carry)를 만든다.
 
-    - rv20/rv60: realized vol from DAILY spot (fallback: NaN if no daily)
-
-    - ma20/ma60: SMA from DAILY spot sampled at EOM (fallback: SMA on EOM)
-
-    - carry: CIP forward premium over tenor_days (fwd/spot - 1)
-"""
+    - rv/ma: 일별 환율이 있으면 일별 값으로 계산해 월말에 표본 추출하고,
+      없으면 월말 시계열에 같은 창 길이를 적용한다(월 단위라 훨씬 거칠다).
+    - carry: CIP 이론 선도환율 기준 선도 프리미엄(fwd/spot - 1)
+    """
     pol = (cfg.get('policy') or {})
     fcfg = (pol.get('features') or {})
     rv_w = fcfg.get('rv_windows', [20,60])
     ma_w = fcfg.get('ma_windows', [20,60])
     tenor_days = int((cfg.get('pricing') or {}).get('tenor_days', 30))
 
-    # Realized vols from daily (if available)
     if spot_daily is not None and not spot_daily.empty:
         rv20_d = _realized_vol_daily(spot_daily, int(rv_w[0]))
         rv60_d = _realized_vol_daily(spot_daily, int(rv_w[1]))
         ma20_d = _sma(spot_daily, int(ma_w[0]))
         ma60_d = _sma(spot_daily, int(ma_w[1]))
-        rv20 = _sample_eom(rv20_d); rv60 = _sample_eom(rv60_d)
-        ma20 = _sample_eom(ma20_d); ma60 = _sample_eom(ma60_d)
+        rv20 = _sample_eom(rv20_d)
+        rv60 = _sample_eom(rv60_d)
+        ma20 = _sample_eom(ma20_d)
+        ma60 = _sample_eom(ma60_d)
     else:
-        # Fallback: compute on EOM series (coarser)
         r = np.log(spot_eom).diff()
-        rv20 = r.rolling(int(rv_w[0])).std() * np.sqrt(12)  # monthly approx
+        rv20 = r.rolling(int(rv_w[0])).std() * np.sqrt(12)
         rv60 = r.rolling(int(rv_w[1])).std() * np.sqrt(12)
         ma20 = spot_eom.rolling(int(ma_w[0])).mean()
         ma60 = spot_eom.rolling(int(ma_w[1])).mean()
 
-    # Carry from CIP theoretical forward vs spot
     fwd = cip_forward_theoretical(spot_eom, r_us_eom, r_kr_eom, days=tenor_days)
     carry = (fwd / spot_eom) - 1.0
 

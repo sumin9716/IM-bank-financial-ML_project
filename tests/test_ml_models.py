@@ -1,43 +1,29 @@
-"""
-Tests for ML models and integrated pipeline
-ML 모델 및 통합 파이프라인 테스트
-"""
+"""ML 모델, ML 정책 연동, 성과 요약 함수 테스트."""
 
 import unittest
-import pandas as pd
-import numpy as np
-from pathlib import Path
-import tempfile
-import os
-import sys
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+import numpy as np
+import pandas as pd
 
 from fx_external_pipeline_full.ml_models import (
-    HedgeRatioPredictor, ExposureForecastor, train_ml_models
+    HedgeRatioPredictor, ExposureForecaster, train_ml_models
 )
 from fx_external_pipeline_full.ml_monitoring import evaluate_hedge_performance
 from fx_external_pipeline_full.policy import apply_policy
 
 
 class TestHedgeRatioPredictor(unittest.TestCase):
-    """Test HedgeRatioPredictor with various data conditions"""
-    
     def setUp(self):
-        """Set up test data"""
-        # Small dataset for testing edge cases
         self.small_exposure_df = pd.DataFrame({
             'company_id': ['A', 'B'],
             'month': pd.to_datetime(['2024-01-01', '2024-02-01']),
             'net_exposure': [1000000, -500000]
         })
-        
-        # Normal sized dataset
+
         np.random.seed(42)
         dates = pd.date_range('2022-01-01', '2024-12-01', freq='MS')[:36]
         companies = [f'COMP_{i:03d}' for i in range(20)]
-        
+
         self.normal_exposure_df = pd.DataFrame([
             {
                 'company_id': comp,
@@ -45,72 +31,58 @@ class TestHedgeRatioPredictor(unittest.TestCase):
                 'net_exposure': np.random.uniform(-2e6, 2e6)
             }
             for comp in companies
-            for date in dates[:6]  # 6 months per company = 120 samples
+            for date in dates[:6]  # 기업 20개 × 6개월 = 120행(학습 최소 표본 50 이상)
         ])
-        
-        # Market data
+
         self.market_df = pd.DataFrame({
             'spot': np.random.uniform(1200, 1400, len(dates)),
             'us_rate': np.random.uniform(0.01, 0.05, len(dates)),
             'kr_rate': np.random.uniform(0.02, 0.04, len(dates))
         }, index=dates)
-    
+
     def test_small_dataset_handling(self):
-        """Test model behavior with insufficient data"""
         predictor = HedgeRatioPredictor('random_forest')
-        
-        # Should raise error for very small datasets
+
+        # 표본이 10개 미만이면 학습하지 않는다
         with self.assertRaises(ValueError):
-            tiny_df = self.small_exposure_df.iloc[:1]  # Only 1 sample
+            tiny_df = self.small_exposure_df.iloc[:1]
             predictor.train(tiny_df, self.market_df)
-    
+
     def test_normal_dataset_training(self):
-        """Test normal training flow"""
         predictor = HedgeRatioPredictor('random_forest')
-        
-        # Should complete without errors
+
         metrics = predictor.train(self.normal_exposure_df, self.market_df)
-        
-        # Check metrics structure
+
         self.assertIn('train_r2', metrics)
         self.assertIn('n_samples', metrics)
         self.assertEqual(metrics['n_samples'], len(self.normal_exposure_df))
-        
-        # Model should be fitted
         self.assertTrue(predictor.is_fitted)
-        
+
     def test_prediction_after_training(self):
-        """Test prediction functionality"""
         predictor = HedgeRatioPredictor('random_forest')
         predictor.train(self.normal_exposure_df, self.market_df)
-        
-        # Should produce predictions
+
         test_exposure = self.normal_exposure_df.iloc[:5]
         predictions = predictor.predict_hedge_ratios(test_exposure, self.market_df)
-        
+
         self.assertEqual(len(predictions), 5)
-        self.assertTrue(all(0 <= p <= 1 for p in predictions))  # Ratios should be in [0,1]
-    
+        self.assertTrue(all(0 <= p <= 1 for p in predictions))
+
     def test_feature_importance(self):
-        """Test feature importance extraction"""
         predictor = HedgeRatioPredictor('random_forest')
         predictor.train(self.normal_exposure_df, self.market_df)
-        
-        # Should have feature importance
+
         self.assertIsNotNone(predictor.feature_importance_)
         self.assertIsInstance(predictor.feature_importance_, dict)
         self.assertTrue(len(predictor.feature_importance_) > 0)
 
 
-class TestExposureForecastor(unittest.TestCase):
-    """Test ExposureForecastor"""
-    
+class TestExposureForecaster(unittest.TestCase):
     def setUp(self):
-        """Set up test data"""
         np.random.seed(42)
         dates = pd.date_range('2022-01-01', '2024-12-01', freq='MS')
         companies = [f'COMP_{i:03d}' for i in range(10)]
-        
+
         self.exposure_df = pd.DataFrame([
             {
                 'company_id': comp,
@@ -120,35 +92,28 @@ class TestExposureForecastor(unittest.TestCase):
             for comp in companies
             for date in dates
         ])
-    
+
     def test_forecasting_training(self):
-        """Test forecasting model training"""
-        forecaster = ExposureForecastor('random_forest')
-        
+        forecaster = ExposureForecaster('random_forest')
+
         metrics = forecaster.train(self.exposure_df)
-        
-        # Should complete without errors
+
         self.assertIn('n_samples', metrics)
         self.assertTrue(forecaster.is_fitted)
-    
+
     def test_future_prediction(self):
-        """Test future exposure prediction"""
-        forecaster = ExposureForecastor('random_forest')
+        forecaster = ExposureForecaster('random_forest')
         forecaster.train(self.exposure_df)
-        
+
         future_exposure = forecaster.predict_future_exposure(self.exposure_df)
-        
-        # Should return DataFrame with predictions
+
         self.assertIsInstance(future_exposure, pd.DataFrame)
         self.assertIn('predicted_exposure', future_exposure.columns)
         self.assertTrue(len(future_exposure) > 0)
 
 
 class TestMLPolicyIntegration(unittest.TestCase):
-    """Test ML integration with policy system"""
-    
     def setUp(self):
-        """Set up test configuration and data"""
         self.cfg = {
             'policy': {
                 'version': 'v1',
@@ -166,61 +131,46 @@ class TestMLPolicyIntegration(unittest.TestCase):
                 'hedge_ratio_prediction': {'enabled': True}
             }
         }
-        
+
         np.random.seed(42)
         self.exposure_df = pd.DataFrame({
             'company_id': [f'COMP_{i}' for i in range(10)],
             'month': pd.to_datetime('2024-01-01'),
             'net_exposure': np.random.uniform(-1e6, 1e6, 10)
         })
-        
+
         dates = pd.date_range('2024-01-01', '2024-06-01', freq='MS')
         self.market_df = pd.DataFrame({
             'spot': [1300] * len(dates),
             'us_rate': [0.03] * len(dates),
             'kr_rate': [0.025] * len(dates)
         }, index=dates)
-    
+
     def test_policy_without_ml(self):
-        """Test policy application without ML models"""
         result = apply_policy(self.exposure_df, cfg=self.cfg)
-        
-        # Should fallback to rule-based policy
+
+        # v1은 features_df가 필요하므로 v0 규칙으로 내려간다
         self.assertIn('hedge_ratio', result.columns)
-        self.assertIn('policy_version', result.columns)
-        self.assertTrue(all(result['policy_version'] == 'v0'))  # Should fallback
-    
+        self.assertTrue(all(result['policy_version'] == 'v0'))
+
     def test_policy_with_ml_failure_fallback(self):
-        """Test fallback behavior when ML fails"""
-        # Create invalid ML models that will fail
-        ml_models = {
-            'hedge_ratio_predictor': {
-                'model': None  # Invalid model
-            }
-        }
-        
-        result = apply_policy(self.exposure_df, cfg=self.cfg, 
+        # 예측할 수 없는 모델을 넣으면 규칙 기반(v0)으로 내려가야 한다
+        ml_models = {'hedge_ratio_predictor': {'model': None}}
+
+        result = apply_policy(self.exposure_df, cfg=self.cfg,
                             ml_models=ml_models, market_df=self.market_df)
-        
-        # Should fallback gracefully
-        self.assertIn('hedge_ratio', result.columns)
+
+        self.assertTrue(all(result['policy_version'] == 'v0'))
         self.assertTrue(all(0 <= r <= 1 for r in result['hedge_ratio']))
-    
-    def test_policy_with_features_missing_fallback(self):
-        """Test fallback when features are missing for v1"""
-        # Don't provide features_df for v1 policy
-        result = apply_policy(self.exposure_df, features_df=None, cfg=self.cfg)
-        
-        # Should fallback to v0
-        self.assertIn('hedge_ratio', result.columns)
-        self.assertIn('policy_version', result.columns)
+
+    def test_policy_v1_without_features_raises_when_fallback_disabled(self):
+        cfg = {**self.cfg, 'policy': {**self.cfg['policy'], 'v1': {'fallback_to_v0': False}}}
+        with self.assertRaises(ValueError):
+            apply_policy(self.exposure_df, features_df=None, cfg=cfg)
 
 
 class TestMLMonitoringFunctions(unittest.TestCase):
-    """Test ML monitoring functions"""
-    
     def setUp(self):
-        """Set up test data"""
         np.random.seed(42)
         self.ml_exposure_df = pd.DataFrame({
             'company_id': [f'COMP_{i}' for i in range(10)],
@@ -229,58 +179,55 @@ class TestMLMonitoringFunctions(unittest.TestCase):
             'hedge_ratio': np.random.uniform(0.1, 0.8, 10),
             'policy_version': ['ML_enhanced'] * 10
         })
-        
+
         self.rule_exposure_df = self.ml_exposure_df.copy()
-        self.rule_exposure_df['hedge_ratio'] = 0.5  # Simple rule
+        self.rule_exposure_df['hedge_ratio'] = 0.5
         self.rule_exposure_df['policy_version'] = 'v0'
-        
+
         self.pnl_df = pd.DataFrame({
             'company_id': [f'COMP_{i}' for i in range(10)],
             'month': pd.to_datetime('2024-01-01'),
-            'pnl': np.random.uniform(-50000, 50000, 10)
+            'pnl_krw': np.random.uniform(-50000, 50000, 10)
         })
-    
+
     def test_performance_evaluation_function(self):
-        """Test performance evaluation function"""
-        # Should not raise errors
-        try:
-            results = evaluate_hedge_performance(
-                original_exposure_df=self.rule_exposure_df,
-                ml_enhanced_exposure_df=self.ml_exposure_df,
-                pnl_results=self.pnl_df
-            )
-            self.assertIsInstance(results, dict)
-        except Exception as e:
-            # Monitor may have dependencies we don't have in test environment
-            self.skipTest(f"Monitor evaluation requires additional setup: {e}")
+        results = evaluate_hedge_performance(
+            original_exposure_df=self.rule_exposure_df,
+            ml_enhanced_exposure_df=self.ml_exposure_df,
+            pnl_results=self.pnl_df
+        )
+        self.assertEqual(set(results), {'hedge_ratio_comparison', 'pnl_analysis', 'hedge_efficiency'})
+        self.assertAlmostEqual(results['hedge_ratio_comparison']['original_mean'], 0.5)
+        self.assertAlmostEqual(results['pnl_analysis']['total_pnl_krw'], self.pnl_df['pnl_krw'].sum())
+        self.assertEqual(results['hedge_efficiency']['companies_with_hedge'], 10)
+
+    def test_performance_evaluation_without_pnl(self):
+        results = evaluate_hedge_performance(self.rule_exposure_df, self.ml_exposure_df, pd.DataFrame())
+        self.assertNotIn('pnl_analysis', results)
 
 
 class TestIntegratedMLPipeline(unittest.TestCase):
-    """Test the full ML pipeline integration"""
-    
     def test_ml_models_training_integration(self):
-        """Test the complete ML training pipeline"""
-        # Setup data
         np.random.seed(42)
         dates = pd.date_range('2022-01-01', '2024-06-01', freq='MS')
         companies = [f'COMP_{i:03d}' for i in range(15)]
-        
+
         exposure_df = pd.DataFrame([
             {
                 'company_id': comp,
                 'month': date,
                 'net_exposure': np.random.uniform(-2e6, 2e6)
             }
-            for comp in companies[:5]  # Reduced for faster testing
-            for date in dates[:12]  # 12 months per company = 60 samples
+            for comp in companies[:5]
+            for date in dates[:12]  # 기업 5개 × 12개월 = 60행
         ])
-        
+
         market_df = pd.DataFrame({
             'spot': np.random.uniform(1200, 1400, len(dates)),
             'us_rate': np.random.uniform(0.01, 0.05, len(dates)),
             'kr_rate': np.random.uniform(0.02, 0.04, len(dates))
         }, index=dates)
-        
+
         config = {
             'ml_models': {
                 'enabled': True,
@@ -294,37 +241,16 @@ class TestIntegratedMLPipeline(unittest.TestCase):
                 }
             }
         }
-        
-        # Should train without major errors
-        try:
-            ml_models = train_ml_models(exposure_df, market_df, config)
-            self.assertIsInstance(ml_models, dict)
-            
-            # Check if models were created (may not train successfully with test data)
-            if ml_models:
-                for model_name, model_info in ml_models.items():
-                    self.assertIn('model', model_info)
-                    self.assertIn('metrics', model_info)
-                    
-        except Exception as e:
-            # May fail with insufficient data in test environment
-            self.skipTest(f"ML training requires more robust test setup: {e}")
+
+        ml_models = train_ml_models(exposure_df, market_df, config)
+
+        self.assertEqual(set(ml_models), {'hedge_ratio_predictor', 'exposure_forecaster'})
+        for model_info in ml_models.values():
+            self.assertIn('model', model_info)
+            self.assertIn('metrics', model_info)
 
 
-if __name__ == '__main__':
-    # Run specific test classes based on what's available
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-    
-    # Add test classes
-    suite.addTests(loader.loadTestsFromTestCase(TestHedgeRatioPredictor))
-    suite.addTests(loader.loadTestsFromTestCase(TestExposureForecastor))
-    suite.addTests(loader.loadTestsFromTestCase(TestMLPolicyIntegration))
-    suite.addTests(loader.loadTestsFromTestCase(TestMLMonitoringFunctions))
-    suite.addTests(loader.loadTestsFromTestCase(TestIntegratedMLPipeline))
-    
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-    
-    # Exit with proper code
-    sys.exit(0 if result.wasSuccessful() else 1)
+def test_rule_based_target_follows_exposure_tiers():
+    df = pd.DataFrame({'net_exposure': [-2_000_000, 1_000_000, 999_999, 100_000, -50_000, 0]})
+    target = HedgeRatioPredictor().create_target_variable(df)
+    assert list(target) == [0.8, 0.8, 0.5, 0.5, 0.3, 0.3]

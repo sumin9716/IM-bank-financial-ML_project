@@ -5,6 +5,8 @@ data_source:
   rates_us: csv    # csv | fred | ecos
   rates_kr: csv    # csv | ecos
 
+# data_source가 fred/ecos일 때만 쓰인다. api_key_env와 fred.series는 참고용이며, 로더는
+# FRED_API_KEY·ECOS_API_KEY 환경 변수와 고정된 FRED 시리즈 ID를 쓴다.
 fred:
   api_key_env: FRED_API_KEY
   series:
@@ -28,9 +30,12 @@ holidays:
   cache_dir: data/reference/holidays_cache
 
 
-# Policy Configuration - supports both rule-based (v0) and ML-enhanced (v1) modes
+# 헤지 정책. v0는 노출 규모 구간별 규칙, v1은 v0에 시장 신호(변동성·추세·캐리) 조정을 더한다.
+# 주의: policy.py는 policy 바로 아래의 size_thresholds·ratios·features·weights·bounds를 읽는다.
+# 아래 v0/v1 블록에서 실제로 쓰이는 값은 v1.fallback_to_v0뿐이고, 규칙 기반 v0는 코드 기본값
+# (|순노출| 100만 미만 0.0, 500만 미만 0.5, 그 이상 0.8)으로 동작한다.
 policy:
-  version: v1              # v0 (rule-based) | v1 (ML-enhanced with fallback)
+  version: v1              # v0 | v1. ml_models로 학습한 모델이 있으면 ML 예측이 먼저 적용된다
   
   # v0 Configuration (Rule-based)
   v0:
@@ -76,7 +81,7 @@ governance:
   changelog_csv: reports/policy_changelog.csv
   default_actor: "system"
 
-# Data Quality and Validation Settings
+# 코드가 읽는 키는 auto_fill_gaps와 gap_fill_method다. 만기 허용 오차 10일은 data_quality.py에 고정되어 있다.
 data_quality:
   auto_fill_gaps: true              # 자동으로 월별 데이터 공백 채우기
   gap_fill_method: "zero"           # zero | forward_fill | interpolate
@@ -98,7 +103,9 @@ ifrs9:
     snapshot_dir: reports/_artifacts/ifrs9_snapshots
     changelog_csv: reports/ifrs9_changelog.csv
 
-# Machine Learning Models for Advanced Hedging
+# 트리 기반 ML 모델. 코드가 읽는 키는 enabled, 각 모델의 enabled·model_type,
+# exposure_forecasting.horizon_months다. 나머지 키는 참고용이며 표본 기준(50/25)과
+# 모델 파라미터는 같은 값이 ml_models.py에 고정되어 있다.
 ml_models:
   enabled: true
   

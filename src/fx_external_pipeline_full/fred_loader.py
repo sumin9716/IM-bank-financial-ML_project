@@ -1,30 +1,61 @@
-import os, requests, pandas as pd
-from .utils import to_month_end
+import os
+
+import pandas as pd
+import requests
+
+from .utils import redact_secret, to_month_end
 
 FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
 
+
 def _fred_get(series_id, api_key, start=None, end=None):
     params = {"series_id": series_id, "api_key": api_key, "file_type": "json"}
-    if start: params["observation_start"] = start
-    if end: params["observation_end"] = end
-    r = requests.get(FRED_BASE, params=params, timeout=20); r.raise_for_status()
-    js = r.json(); rows = js.get("observations", [])
-    if not rows: return pd.DataFrame(columns=["date","value"])
+    if start:
+        params["observation_start"] = start
+    if end:
+        params["observation_end"] = end
+    try:
+        r = requests.get(FRED_BASE, params=params, timeout=20)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        # 키가 요청 URL에 들어가 예외 메시지와 경고 출력에 그대로 남으므로 가린다
+        raise redact_secret(e, api_key) from None
+    rows = r.json().get("observations", [])
+    if not rows:
+        return pd.DataFrame(columns=["date","value"])
     df = pd.DataFrame(rows)[["date","value"]]
     df["date"] = pd.to_datetime(df["date"])
     df["value"] = pd.to_numeric(df["value"].replace({".": None}), errors="coerce")
     return df
 
-def load_fred_series(series_id, start=None, end=None, value_to_decimal=False):
+
+def load_fred_series(series_id, start=None, end=None, value_to_decimal=False, month_end=True):
+    """FRED 시계열을 읽는다. month_end=True이면 월마다 마지막 관측치만 월말 날짜로 남긴다."""
     api_key = os.getenv("FRED_API_KEY", "")
-    if not api_key: raise EnvironmentError("FRED_API_KEY is not set")
+    if not api_key:
+        raise EnvironmentError("FRED_API_KEY is not set")
     df = _fred_get(series_id, api_key, start, end)
-    if df.empty: return pd.Series(dtype=float)
+    if df.empty:
+        return pd.Series(dtype=float)
     s = df.set_index("date")["value"].sort_index()
-    if value_to_decimal: s = s/100.0
+    if value_to_decimal:
+        s = s/100.0
+    if not month_end:
+        return s.dropna()
     return to_month_end(s).groupby(level=0).last()
 
-def load_usdkrw_spot_eom_from_fred(start=None, end=None): return load_fred_series("DEXKOUS", start, end, False)
-def load_us_1y_yield_eom_from_fred(start=None, end=None): return load_fred_series("DGS1", start, end, True)
-def load_sofr_eom_from_fred(start=None, end=None): return load_fred_series("SOFR", start, end, True)
-def load_usdkrw_spot_daily_from_fred(start=None, end=None): return load_fred_series("DEXKOUS", start, end, False)
+
+def load_usdkrw_spot_eom_from_fred(start=None, end=None):
+    return load_fred_series("DEXKOUS", start, end, False)
+
+
+def load_us_1y_yield_eom_from_fred(start=None, end=None):
+    return load_fred_series("DGS1", start, end, True)
+
+
+def load_sofr_eom_from_fred(start=None, end=None):
+    return load_fred_series("SOFR", start, end, True)
+
+
+def load_usdkrw_spot_daily_from_fred(start=None, end=None):
+    return load_fred_series("DEXKOUS", start, end, False, month_end=False)

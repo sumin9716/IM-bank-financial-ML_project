@@ -1,5 +1,8 @@
-import logging, logging.config, yaml, numpy as np, pandas as pd
+import logging.config
 from pathlib import Path
+
+import pandas as pd
+import yaml
 
 def load_yaml(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
@@ -26,3 +29,7 @@ def to_month_end(s: pd.Series) -> pd.Series:
 def encode_categorical(series: pd.Series) -> pd.Series:
     cats = {v: i for i, v in enumerate(sorted(series.dropna().astype(str).unique()))}
     return series.astype(str).map(cats).fillna(-1).astype(int)
+
+def redact_secret(exc: Exception, secret: str) -> Exception:
+    """exc와 같은 종류의 예외를 메시지에서 secret을 가려 새로 만든다."""
+    return type(exc)(str(exc).replace(secret, "***"))

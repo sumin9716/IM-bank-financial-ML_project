@@ -1,17 +1,21 @@
-import itertools, pandas as pd, numpy as np
+import itertools
+
+import numpy as np
+import pandas as pd
+
 from .features import compute_features
 from .policy import apply_policy
 from .backtest import monthly_forward_strategy
 from .risk import expected_shortfall
 
 def _objective(pnl: pd.Series, w_sigma=1.0, w_es=1.0, w_mean=0.5):
+    """작을수록 좋은 위험 비용: 손익 표준편차와 ES99 손실 크기를 더하고 양(+)의 평균 손익을 뺀다."""
     if pnl is None or len(pnl)==0:
         return np.inf
     sigma = float(pnl.std())
     es99 = float(expected_shortfall(pnl, alpha=0.99, window=min(252, len(pnl))))
-    es_loss = -min(0.0, es99)  # convert to positive loss magnitude
+    es_loss = -min(0.0, es99)
     mean = float(pnl.mean())
-    # minimize risk cost
     return w_sigma*sigma + w_es*es_loss - w_mean*max(0.0, mean)
 
 def grid_tune_policy(panel: pd.DataFrame,
@@ -20,11 +24,15 @@ def grid_tune_policy(panel: pd.DataFrame,
                      spot_eom: pd.Series, r_us_eom: pd.Series, r_kr_eom: pd.Series,
                      forward_eom: pd.Series,
                      cfg: dict) -> pd.DataFrame:
-    # Prepare features once (values not depending on thresholds)
+    """v1 정책의 rv20/carry 임계값 격자를 백테스트해 목적함수 순으로 정렬한 표를 돌려준다.
+
+    평균 손익이 v0 정책의 min_mean_ratio배 이상인 후보(mean_ok)를 먼저 놓는다.
+    """
+    # 신호 값은 임계값과 무관하므로 한 번만 계산한다
     base_feats = compute_features(spot_daily, spot_eom, r_us_eom, r_kr_eom, cfg)
 
-    # Grid
-    pol = cfg.get('policy', {}); fcfg = pol.get('features', {})
+    pol = cfg.get('policy', {})
+    fcfg = pol.get('features', {})
     grid = (cfg.get('tuning') or {}).get('grid', {})
     rv_grid = grid.get('rv20_thresh', [0.01, 0.015, 0.02])
     carry_grid = grid.get('carry_thresh', [-0.002, 0.0, 0.002])
@@ -32,11 +40,10 @@ def grid_tune_policy(panel: pd.DataFrame,
     min_mean_ratio = float((cfg.get('tuning') or {}).get('min_mean_ratio', 0.9))
 
     results = []
-    # Baseline (v0) for mean constraint
     cfg_v0 = dict(cfg)
-    cfg_v0['policy'] = dict(pol); cfg_v0['policy']['version'] = 'v0'
+    cfg_v0['policy'] = dict(pol)
+    cfg_v0['policy']['version'] = 'v0'
     expo_v0 = apply_policy(exposure_df, None, cfg_v0)
-    from .backtest import monthly_forward_strategy
     pnl_v0 = monthly_forward_strategy(expo_v0, spot_eom, forward_eom)['pnl_krw']
     baseline_mean = float(pnl_v0.mean()) if len(pnl_v0)>0 else 0.0
 
