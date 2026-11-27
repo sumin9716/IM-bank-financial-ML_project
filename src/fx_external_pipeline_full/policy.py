@@ -10,8 +10,10 @@ def recommend_hedge_ratio(row, size_thresholds=(1e6, 5e6), ratios=(0.0, 0.5, 0.8
     ne = abs(float(row.get("net_exposure", 0.0)))
     t1, t2 = size_thresholds
     r0, r1, r2 = ratios
-    if ne < t1: return r0
-    if ne < t2: return r1
+    if ne < t1:
+        return r0
+    if ne < t2:
+        return r1
     return r2
 
 def _apply_policy_v0(exposure_df: pd.DataFrame, cfg: dict|None=None) -> pd.DataFrame:
@@ -117,7 +119,8 @@ def _normalize_series(x):
     s = pd.to_numeric(x, errors="coerce")
     if s.isna().all(): 
         return s.fillna(0.0)
-    m = float(s.mean()); sd = float(s.std(ddof=0)) or 1.0
+    m = float(s.mean())
+    sd = float(s.std(ddof=0)) or 1.0
     z = (s - m) / sd
     return z.apply(lambda v: float(np.tanh(v)))
 

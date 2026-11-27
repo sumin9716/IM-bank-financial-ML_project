@@ -1,4 +1,8 @@
-import itertools, pandas as pd, numpy as np
+import itertools
+
+import numpy as np
+import pandas as pd
+
 from .features import compute_features
 from .policy import apply_policy
 from .backtest import monthly_forward_strategy
@@ -27,7 +31,8 @@ def grid_tune_policy(panel: pd.DataFrame,
     # 신호 값은 임계값과 무관하므로 한 번만 계산한다
     base_feats = compute_features(spot_daily, spot_eom, r_us_eom, r_kr_eom, cfg)
 
-    pol = cfg.get('policy', {}); fcfg = pol.get('features', {})
+    pol = cfg.get('policy', {})
+    fcfg = pol.get('features', {})
     grid = (cfg.get('tuning') or {}).get('grid', {})
     rv_grid = grid.get('rv20_thresh', [0.01, 0.015, 0.02])
     carry_grid = grid.get('carry_thresh', [-0.002, 0.0, 0.002])
@@ -36,7 +41,8 @@ def grid_tune_policy(panel: pd.DataFrame,
 
     results = []
     cfg_v0 = dict(cfg)
-    cfg_v0['policy'] = dict(pol); cfg_v0['policy']['version'] = 'v0'
+    cfg_v0['policy'] = dict(pol)
+    cfg_v0['policy']['version'] = 'v0'
     expo_v0 = apply_policy(exposure_df, None, cfg_v0)
     pnl_v0 = monthly_forward_strategy(expo_v0, spot_eom, forward_eom)['pnl_krw']
     baseline_mean = float(pnl_v0.mean()) if len(pnl_v0)>0 else 0.0

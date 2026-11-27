@@ -20,9 +20,12 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
     - include_open_positions=True이면 기업별 마지막 노출월을 status='open' 행으로 덧붙인다.
     """
     pnl_rows = []
-    s = spot_eom.copy(); f = forward_eom.copy()
-    if not isinstance(s.index, pd.DatetimeIndex): s.index = pd.to_datetime(s.index)
-    if not isinstance(f.index, pd.DatetimeIndex): f.index = pd.to_datetime(f.index)
+    s = spot_eom.copy()
+    f = forward_eom.copy()
+    if not isinstance(s.index, pd.DatetimeIndex):
+        s.index = pd.to_datetime(s.index)
+    if not isinstance(f.index, pd.DatetimeIndex):
+        f.index = pd.to_datetime(f.index)
 
     for cid, grp in exposure_df.groupby(company_col):
         g = grp.sort_values(date_col).reset_index(drop=True)

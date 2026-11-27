@@ -52,8 +52,10 @@ def compute_features(spot_daily: pd.Series|None,
         rv60_d = _realized_vol_daily(spot_daily, int(rv_w[1]))
         ma20_d = _sma(spot_daily, int(ma_w[0]))
         ma60_d = _sma(spot_daily, int(ma_w[1]))
-        rv20 = _sample_eom(rv20_d); rv60 = _sample_eom(rv60_d)
-        ma20 = _sample_eom(ma20_d); ma60 = _sample_eom(ma60_d)
+        rv20 = _sample_eom(rv20_d)
+        rv60 = _sample_eom(rv60_d)
+        ma20 = _sample_eom(ma20_d)
+        ma60 = _sample_eom(ma60_d)
     else:
         r = np.log(spot_eom).diff()
         rv20 = r.rolling(int(rv_w[0])).std() * np.sqrt(12)

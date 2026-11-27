@@ -6,9 +6,12 @@ from .holiday_calendar import DEFAULT_CACHE_DIR, previous_business_day
 def _align_xy(y: pd.Series, x: pd.Series) -> tuple[pd.Series, pd.Series]:
     if y is None or x is None:
         return pd.Series(dtype=float), pd.Series(dtype=float)
-    yy = y.copy(); xx = x.copy()
-    if not isinstance(yy.index, pd.DatetimeIndex): yy.index = pd.to_datetime(yy.index)
-    if not isinstance(xx.index, pd.DatetimeIndex): xx.index = pd.to_datetime(xx.index)
+    yy = y.copy()
+    xx = x.copy()
+    if not isinstance(yy.index, pd.DatetimeIndex):
+        yy.index = pd.to_datetime(yy.index)
+    if not isinstance(xx.index, pd.DatetimeIndex):
+        xx.index = pd.to_datetime(xx.index)
     df = pd.concat([yy.rename("y"), xx.rename("x")], axis=1).dropna()
     return df["y"], df["x"]
 
@@ -68,7 +71,8 @@ def _last_valid(series: pd.Series, dt: pd.Timestamp):
     if series is None or series.empty:
         return np.nan
     s = series[series.index <= dt]
-    if len(s)==0: return np.nan
+    if len(s) == 0:
+        return np.nan
     return float(s.iloc[-1])
 
 def sample_series(spot_daily: pd.Series|None, eom_series: pd.Series, period='M', rule='month_end',
@@ -97,7 +101,8 @@ def sample_series(spot_daily: pd.Series|None, eom_series: pd.Series, period='M',
                 start = (pd.Timestamp(pend).to_period(period.upper()).start_time)
                 end = pd.Timestamp(pend)
                 sd = spot_daily.copy()
-                if not isinstance(sd.index, pd.DatetimeIndex): sd.index = pd.to_datetime(sd.index)
+                if not isinstance(sd.index, pd.DatetimeIndex):
+                    sd.index = pd.to_datetime(sd.index)
                 mask = (sd.index>=start) & (sd.index<=end)
                 val = float(sd.loc[mask].mean()) if mask.any() else _last_valid(eom_series, pend)
             else:
