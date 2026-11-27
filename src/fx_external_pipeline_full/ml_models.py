@@ -124,12 +124,13 @@ class HedgeRatioPredictor:
         return pd.DataFrame(features_list)
     
     def _get_exposure_tier(self, abs_exposure: float) -> int:
+        """|순노출| 100만 이상 3, 10만 이상 2, 그 밖 1."""
         if abs_exposure >= 1000000:
-            return 3  # Large
+            return 3
         elif abs_exposure >= 100000:
-            return 2  # Medium
+            return 2
         else:
-            return 1  # Small
+            return 1
     
     def _calculate_volatility(self, market_df: pd.DataFrame, date: pd.Timestamp, window: int) -> float:
         """date까지 window개 관측치의 환율 수익률 표준편차(sqrt(252) 연환산). 계산할 수 없으면 0.015."""

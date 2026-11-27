@@ -1,22 +1,18 @@
-"""
-Data Quality and Continuity Validation Module
-데이터 품질 및 연속성 검증 모듈
-"""
-
-import pandas as pd
-import numpy as np
-from typing import Dict, List
+"""기업별 월 연속성, 선도 만기 일수를 점검하고 공백 채우기와 품질 보고서를 제공한다."""
+import json
 import logging
+from typing import Any, Dict, List
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
 def validate_monthly_continuity(exposure_df: pd.DataFrame, 
                               company_col: str = 'company_id',
-                              date_col: str = 'month') -> Dict[str, any]:
-    """
-    회사별 월별 데이터 연속성 검증
-    """
+                              date_col: str = 'month') -> Dict[str, Any]:
+    """기업마다 첫 달과 마지막 달 사이에 빠진 달이 있는지 찾는다."""
     validation_results = {
         'has_gaps': False,
         'companies_with_gaps': [],
@@ -34,7 +30,6 @@ def validate_monthly_continuity(exposure_df: pd.DataFrame,
         if len(dates) < 2:
             continue
             
-        # 월별 연속성 체크
         expected_months = pd.date_range(
             start=dates.min(), 
             end=dates.max(), 
@@ -75,12 +70,10 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
                      company_col: str = 'company_id',
                      date_col: str = 'month',
                      fill_method: str = 'zero') -> pd.DataFrame:
-    """
-    월별 데이터 공백을 채우는 함수
-    
-    Args:
-        exposure_df: 원본 노출 데이터
-        fill_method: 'zero' (0으로 채움), 'forward_fill' (앞 값으로 채움), 'interpolate' (보간)
+    """기업별로 첫 달~마지막 달 사이 빠진 달을 행으로 추가한다.
+
+    fill_method: 'zero'(수치 열을 0으로), 'forward_fill'(직전 값), 'interpolate'(수치 열 선형 보간).
+    문자열 열은 'filled'로 채운다.
     """
     logger.info(f"Filling monthly gaps using method: {fill_method}")
     
@@ -94,20 +87,16 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
             result_dfs.append(group)
             continue
             
-        # 전체 기간의 월말 날짜 생성
         start_date = pd.to_datetime(group[date_col].min())
         end_date = pd.to_datetime(group[date_col].max())
         
         full_date_range = pd.date_range(start=start_date, end=end_date, freq='ME')
         
-        # 기존 데이터를 날짜로 인덱스
         group[date_col] = pd.to_datetime(group[date_col])
         group_indexed = group.set_index(date_col)
         
-        # 전체 날짜 범위로 리인덱싱
         full_indexed = group_indexed.reindex(full_date_range)
         
-        # company_id는 항상 채움
         full_indexed[company_col] = company_id
         
         missing_count = full_indexed.isnull().any(axis=1).sum()
@@ -119,12 +108,9 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
             logger.info(f"Company {company_id}: Filling {missing_count} missing months")
             
             if fill_method == 'zero':
-                # 노출량 관련 컬럼들을 0으로 채움
                 exposure_cols = [col for col in full_indexed.columns 
                                if 'exposure' in col.lower() or 'hedge' in col.lower()]
                 full_indexed[exposure_cols] = full_indexed[exposure_cols].fillna(0.0)
-                
-                # 기타 수치형 컬럼도 0으로 채움
                 numeric_cols = full_indexed.select_dtypes(include=[np.number]).columns
                 full_indexed[numeric_cols] = full_indexed[numeric_cols].fillna(0.0)
                 
@@ -135,13 +121,11 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
                 numeric_cols = full_indexed.select_dtypes(include=[np.number]).columns
                 full_indexed[numeric_cols] = full_indexed[numeric_cols].interpolate()
                 
-            # 문자열 컬럼 처리
             string_cols = full_indexed.select_dtypes(include=['object']).columns
             for col in string_cols:
                 if col != company_col:
                     full_indexed[col] = full_indexed[col].fillna('filled')
         
-        # 인덱스를 컬럼으로 다시 변환
         full_indexed = full_indexed.reset_index()
         full_indexed = full_indexed.rename(columns={'index': date_col})
         
@@ -157,10 +141,8 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
 
 
 def validate_forward_maturity_consistency(pnl_df: pd.DataFrame,
-                                        expected_maturity_days: int = 30) -> Dict[str, any]:
-    """
-    선도 만기 일수 일관성 검증
-    """
+                                        expected_maturity_days: int = 30) -> Dict[str, Any]:
+    """체결월말~정산월말 일수가 expected_maturity_days ± 10일을 벗어나는 거래를 찾는다."""
     if pnl_df.empty or 'trade_month' not in pnl_df.columns or 'fix_month' not in pnl_df.columns:
         return {'has_inconsistencies': False, 'details': []}
     
@@ -168,11 +150,9 @@ def validate_forward_maturity_consistency(pnl_df: pd.DataFrame,
     pnl_df['trade_month'] = pd.to_datetime(pnl_df['trade_month'])
     pnl_df['fix_month'] = pd.to_datetime(pnl_df['fix_month'])
     
-    # 실제 만기 일수 계산
     pnl_df['actual_maturity_days'] = (pnl_df['fix_month'] - pnl_df['trade_month']).dt.days
     
-    # 예상과 다른 만기 찾기
-    tolerance = 10  # ±10일 허용
+    tolerance = 10
     inconsistent_mask = abs(pnl_df['actual_maturity_days'] - expected_maturity_days) > tolerance
     
     inconsistencies = pnl_df[inconsistent_mask].copy()
@@ -196,8 +176,7 @@ def validate_forward_maturity_consistency(pnl_df: pd.DataFrame,
         logger.warning(f"Found {len(inconsistencies)} trades with inconsistent maturity "
                       f"(expected ~{expected_maturity_days} days, tolerance ±{tolerance} days)")
         
-        # 심각한 이상치 별도 로깅
-        extreme_mask = pnl_df['actual_maturity_days'] > 60  # 2개월 초과
+        extreme_mask = pnl_df['actual_maturity_days'] > 60
         if extreme_mask.any():
             extreme_count = extreme_mask.sum()
             max_days = pnl_df.loc[extreme_mask, 'actual_maturity_days'].max()
@@ -208,10 +187,8 @@ def validate_forward_maturity_consistency(pnl_df: pd.DataFrame,
 
 def generate_data_quality_report(exposure_df: pd.DataFrame, 
                                pnl_df: pd.DataFrame = None,
-                               output_path: str = None) -> Dict[str, any]:
-    """
-    종합적인 데이터 품질 보고서 생성
-    """
+                               output_path: str = None) -> Dict[str, Any]:
+    """연속성·만기 점검 결과와 데이터 개요를 묶고, output_path가 있으면 JSON으로 저장한다."""
     logger.info("Generating comprehensive data quality report")
     
     report = {
@@ -234,11 +211,8 @@ def generate_data_quality_report(exposure_df: pd.DataFrame,
             'companies_with_trades': pnl_df['company_id'].nunique() if 'company_id' in pnl_df.columns else 0
         }
     
-    # 보고서 저장
     if output_path:
-        import json
         with open(output_path, 'w', encoding='utf-8') as f:
-            # JSON 직렬화를 위한 처리
             report_json = report.copy()
             if 'data_overview' in report_json:
                 report_json['data_overview']['date_range']['start'] = str(report_json['data_overview']['date_range']['start'])
@@ -250,13 +224,10 @@ def generate_data_quality_report(exposure_df: pd.DataFrame,
     return report
 
 
-def recommend_data_fixes(validation_report: Dict[str, any]) -> List[str]:
-    """
-    데이터 품질 문제에 대한 수정 권고사항 생성
-    """
+def recommend_data_fixes(validation_report: Dict[str, Any]) -> List[str]:
+    """품질 보고서를 보고 공백 비율·만기 불일치 정도에 따라 권고 문장을 만든다."""
     recommendations = []
     
-    # 노출 데이터 연속성 문제
     exposure_val = validation_report.get('exposure_validation', {})
     if exposure_val.get('has_gaps', False):
         gap_pct = exposure_val.get('summary', {}).get('gap_percentage', 0)
@@ -267,7 +238,6 @@ def recommend_data_fixes(validation_report: Dict[str, any]) -> List[str]:
         else:
             recommendations.append("INFO: Minor monthly gaps detected. Apply zero-fill or forward-fill as appropriate.")
     
-    # 만기 일관성 문제
     maturity_val = validation_report.get('maturity_validation', {})
     if maturity_val.get('has_inconsistencies', False):
         inconsistency_pct = maturity_val.get('inconsistency_percentage', 0)
@@ -280,7 +250,6 @@ def recommend_data_fixes(validation_report: Dict[str, any]) -> List[str]:
         else:
             recommendations.append("INFO: Minor maturity inconsistencies. Monitor forward pricing accuracy.")
     
-    # 일반적인 권고사항
     if not recommendations:
         recommendations.append("GOOD: No significant data quality issues detected.")
     

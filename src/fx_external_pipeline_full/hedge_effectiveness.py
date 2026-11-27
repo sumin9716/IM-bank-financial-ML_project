@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
-from .holiday_calendar import previous_business_day
+from .holiday_calendar import DEFAULT_CACHE_DIR, previous_business_day
 
 def _align_xy(y: pd.Series, x: pd.Series) -> tuple[pd.Series, pd.Series]:
     if y is None or x is None:
@@ -13,7 +13,7 @@ def _align_xy(y: pd.Series, x: pd.Series) -> tuple[pd.Series, pd.Series]:
     return df["y"], df["x"]
 
 def dollar_offset_ratio(y: pd.Series, x: pd.Series) -> float:
-    """Prospective Dollar-Offset ratio: sum(|Δy|)/sum(|Δx|) using consecutive period ends."""
+    """Dollar-offset 비율: 연속한 기간 말 사이 변화량 절댓값의 합 비율 sum(|Δy|)/sum(|Δx|)."""
     y, x = _align_xy(y, x)
     if len(y) < 2 or len(x) < 2:
         return float("nan")
@@ -38,7 +38,7 @@ def regression_r2(y: pd.Series, x: pd.Series) -> float:
     return float(r2)
 
 def regression_stats(y: pd.Series, x: pd.Series) -> dict:
-    """Return beta(slope), alpha(intercept), R2, stderr_beta, t_beta, p_beta, n."""
+    """y = alpha + beta·x 최소제곱 회귀의 alpha, beta, r2, stderr_beta, t_beta, p_beta, n."""
     y, x = _align_xy(y, x)
     n = len(y)
     if n < 3:
@@ -47,7 +47,7 @@ def regression_stats(y: pd.Series, x: pd.Series) -> dict:
     beta_hat = np.linalg.lstsq(X, y.values, rcond=None)[0]
     yhat = X @ beta_hat
     resid = y.values - yhat
-    s2 = (resid @ resid) / (n - 2)  # residual variance
+    s2 = (resid @ resid) / (n - 2)
     cov = s2 * np.linalg.inv(X.T @ X)
     stderr_beta = np.sqrt(cov[1,1])
     t_beta = beta_hat[1] / (stderr_beta if stderr_beta>0 else np.nan)
@@ -71,21 +71,20 @@ def _last_valid(series: pd.Series, dt: pd.Timestamp):
     if len(s)==0: return np.nan
     return float(s.iloc[-1])
 
-def sample_series(spot_daily: pd.Series|None, eom_series: pd.Series, period='M', rule='month_end', countries=('KR',), cache_dir='data/reference/holidays_cache') -> pd.Series:
-    """Sample price series by period with rule:
-    - period: 'M' monthly, 'Q' quarterly
-    - rule:
-        'month_end' : use EOM values (from eom_series)
-        'prev_business_day' : take last business day of period; prefer daily spot if available, else EOM
-        'avg' : period average (daily if available else monthly EOM mean)
-    Returns a DatetimeIndex series at period ends.
+def sample_series(spot_daily: pd.Series|None, eom_series: pd.Series, period='M', rule='month_end',
+                  countries=('KR',), cache_dir=DEFAULT_CACHE_DIR) -> pd.Series:
+    """가격 시계열을 기간(period: 'M' 월, 'Q' 분기) 말 값으로 표본 추출한다.
+
+    rule
+    - 'month_end': 기간 말 이전의 마지막 월말 값
+    - 'prev_business_day': 기간 말 직전 영업일 값. 일별 자료가 없으면 월말 값
+    - 'avg': 기간 평균. 일별 자료가 있으면 일별 평균, 없으면 월말 값 평균
     """
     if eom_series is None or eom_series.empty:
         return pd.Series(dtype=float)
     if not isinstance(eom_series.index, pd.DatetimeIndex):
         eom = pd.to_datetime(eom_series.index)
         eom_series = pd.Series(eom_series.values, index=eom)
-    # determine period ends
     if period.upper()=='Q':
         p_ends = eom_series.index.to_period('Q').to_timestamp('Q')
     else:
@@ -107,7 +106,6 @@ def sample_series(spot_daily: pd.Series|None, eom_series: pd.Series, period='M',
                 val = float(in_period.mean()) if len(in_period) > 0 else np.nan
         elif rule == 'prev_business_day':
             dt = pd.Timestamp(pend)
-            # ensure prev business day (for KR by default)
             bday = previous_business_day(dt, countries=countries, cache_dir=cache_dir)
             if spot_daily is not None and not spot_daily.empty:
                 val = _last_valid(spot_daily, bday)

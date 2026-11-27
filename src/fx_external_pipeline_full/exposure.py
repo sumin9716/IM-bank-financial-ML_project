@@ -13,7 +13,7 @@ def compute_monthly_exposure(
             raise KeyError(f"Missing column: {c}")
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
     df[date_col] = pd.to_datetime(df[date_col])
-    # Convert to end-of-month to match market data indexing
+    # 시장 데이터가 월말 인덱스이므로 월 초 날짜를 월말로 맞춘다
     df[date_col] = df[date_col] + pd.offsets.MonthEnd(0)
     out = (df.groupby([company_col, date_col], as_index=False)
              .agg(export_amt=(export_col, "sum"),
