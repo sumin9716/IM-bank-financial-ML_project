@@ -490,6 +490,7 @@ class ExposureForecastor:
             'test_r2': r2_score(y_test, y_pred_test),
             'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
             'test_mae': np.mean(np.abs(y_test - y_pred_test)),
+            'n_samples': len(X),
         }
         
         logger.info(f"Exposure forecasting training completed. Test R²: {metrics['test_r2']:.3f}")
