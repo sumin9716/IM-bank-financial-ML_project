@@ -99,7 +99,7 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
         start_date = pd.to_datetime(group[date_col].min())
         end_date = pd.to_datetime(group[date_col].max())
         
-        full_date_range = pd.date_range(start=start_date, end=end_date, freq='M')
+        full_date_range = pd.date_range(start=start_date, end=end_date, freq='ME')
         
         # 기존 데이터를 날짜로 인덱스
         group[date_col] = pd.to_datetime(group[date_col])
@@ -130,7 +130,7 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
                 full_indexed[numeric_cols] = full_indexed[numeric_cols].fillna(0.0)
                 
             elif fill_method == 'forward_fill':
-                full_indexed = full_indexed.fillna(method='ffill')
+                full_indexed = full_indexed.ffill()
                 
             elif fill_method == 'interpolate':
                 numeric_cols = full_indexed.select_dtypes(include=[np.number]).columns
