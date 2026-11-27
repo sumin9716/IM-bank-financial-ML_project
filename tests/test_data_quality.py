@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from fx_external_pipeline_full.data_quality import fill_monthly_gaps, validate_monthly_continuity
 
@@ -24,3 +25,12 @@ def test_fill_monthly_gaps_zero_fills_numeric_columns():
     assert list(a.index) == list(pd.to_datetime(["2024-01-31", "2024-02-29", "2024-03-31"]))
     assert a.loc["2024-02-29"] == 0.0
     assert len(filled) == 5
+
+
+@pytest.mark.filterwarnings("error")
+def test_fill_monthly_gaps_marks_text_columns():
+    df = _exposure_with_gap().assign(industry=["mfg", "mfg", "svc", "svc"])
+    filled = fill_monthly_gaps(df, fill_method="zero")
+    added = filled[(filled["company_id"] == "A") & (filled["month"] == pd.Timestamp("2024-02-29"))]
+    assert added["industry"].tolist() == ["filled"]
+    assert added["company_id"].tolist() == ["A"]

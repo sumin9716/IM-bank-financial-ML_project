@@ -121,7 +121,9 @@ def fill_monthly_gaps(exposure_df: pd.DataFrame,
                 numeric_cols = full_indexed.select_dtypes(include=[np.number]).columns
                 full_indexed[numeric_cols] = full_indexed[numeric_cols].interpolate()
 
-            string_cols = full_indexed.select_dtypes(include=['object']).columns
+            # pandas 3의 기본 문자열 dtype(str)도 object 열과 같이 문자열 열로 본다
+            string_cols = [col for col in full_indexed.columns
+                           if full_indexed[col].dtype == object or isinstance(full_indexed[col].dtype, pd.StringDtype)]
             for col in string_cols:
                 if col != company_col:
                     full_indexed[col] = full_indexed[col].fillna('filled')
