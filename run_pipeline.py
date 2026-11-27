@@ -424,7 +424,7 @@ def main():
             
             if effectiveness_results:
                 effectiveness_df = pd.DataFrame(effectiveness_results)
-                save_csv(effectiveness_df, str(Path(reports_dir)/'ifrs9_effectiveness_summary.csv'))
+                save_csv(effectiveness_df, str(Path(reports_dir)/'ifrs9_company_effectiveness.csv'))
                 
                 effective_rate = effectiveness_df['is_effective'].mean() * 100
                 print(f"[INFO] IFRS9 effectiveness tests completed: {effective_rate:.1f}% effective ({len(effectiveness_df)} companies)")
