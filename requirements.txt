@@ -7,5 +7,4 @@ requests>=2.28.0
 holidays>=0.18
 xgboost>=1.6.0
 lightgbm>=3.3.0
-joblib>=1.2.0
 matplotlib>=3.5.0

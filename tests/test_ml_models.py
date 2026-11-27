@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from fx_external_pipeline_full.ml_models import (
-    HedgeRatioPredictor, ExposureForecastor, train_ml_models
+    HedgeRatioPredictor, ExposureForecaster, train_ml_models
 )
 from fx_external_pipeline_full.ml_monitoring import evaluate_hedge_performance
 from fx_external_pipeline_full.policy import apply_policy
@@ -100,8 +100,8 @@ class TestHedgeRatioPredictor(unittest.TestCase):
         self.assertTrue(len(predictor.feature_importance_) > 0)
 
 
-class TestExposureForecastor(unittest.TestCase):
-    """Test ExposureForecastor"""
+class TestExposureForecaster(unittest.TestCase):
+    """Test ExposureForecaster"""
     
     def setUp(self):
         """Set up test data"""
@@ -121,7 +121,7 @@ class TestExposureForecastor(unittest.TestCase):
     
     def test_forecasting_training(self):
         """Test forecasting model training"""
-        forecaster = ExposureForecastor('random_forest')
+        forecaster = ExposureForecaster('random_forest')
         
         metrics = forecaster.train(self.exposure_df)
         
@@ -131,7 +131,7 @@ class TestExposureForecastor(unittest.TestCase):
     
     def test_future_prediction(self):
         """Test future exposure prediction"""
-        forecaster = ExposureForecastor('random_forest')
+        forecaster = ExposureForecaster('random_forest')
         forecaster.train(self.exposure_df)
         
         future_exposure = forecaster.predict_future_exposure(self.exposure_df)
@@ -316,7 +316,7 @@ if __name__ == '__main__':
     
     # Add test classes
     suite.addTests(loader.loadTestsFromTestCase(TestHedgeRatioPredictor))
-    suite.addTests(loader.loadTestsFromTestCase(TestExposureForecastor))
+    suite.addTests(loader.loadTestsFromTestCase(TestExposureForecaster))
     suite.addTests(loader.loadTestsFromTestCase(TestMLPolicyIntegration))
     suite.addTests(loader.loadTestsFromTestCase(TestMLMonitoringFunctions))
     suite.addTests(loader.loadTestsFromTestCase(TestIntegratedMLPipeline))
