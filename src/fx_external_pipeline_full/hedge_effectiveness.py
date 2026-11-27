@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
-from .holiday_calendar import previous_business_day, is_business_day
+from .holiday_calendar import previous_business_day
 
 def _align_xy(y: pd.Series, x: pd.Series) -> tuple[pd.Series, pd.Series]:
     if y is None or x is None:

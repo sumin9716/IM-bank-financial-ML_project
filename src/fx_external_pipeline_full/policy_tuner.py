@@ -36,7 +36,6 @@ def grid_tune_policy(panel: pd.DataFrame,
     cfg_v0 = dict(cfg)
     cfg_v0['policy'] = dict(pol); cfg_v0['policy']['version'] = 'v0'
     expo_v0 = apply_policy(exposure_df, None, cfg_v0)
-    from .backtest import monthly_forward_strategy
     pnl_v0 = monthly_forward_strategy(expo_v0, spot_eom, forward_eom)['pnl_krw']
     baseline_mean = float(pnl_v0.mean()) if len(pnl_v0)>0 else 0.0
 

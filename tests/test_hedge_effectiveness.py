@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 # add project src to path (../src)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import pandas as pd, numpy as np
+import pandas as pd
 from fx_external_pipeline_full.hedge_effectiveness import dollar_offset_ratio, regression_r2, judge_effective
 
 def test_ifrs9_effectiveness_positive():

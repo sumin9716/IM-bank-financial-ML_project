@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 def cip_forward_theoretical(spot: pd.Series, r_us: pd.Series, r_kr: pd.Series, days=30, day_count=365.0) -> pd.Series:

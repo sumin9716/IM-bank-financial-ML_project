@@ -7,8 +7,6 @@ import unittest
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import tempfile
-import os
 import sys
 
 # Add src to path for imports
@@ -302,7 +300,7 @@ class TestIntegratedMLPipeline(unittest.TestCase):
             
             # Check if models were created (may not train successfully with test data)
             if ml_models:
-                for model_name, model_info in ml_models.items():
+                for model_info in ml_models.values():
                     self.assertIn('model', model_info)
                     self.assertIn('metrics', model_info)
                     

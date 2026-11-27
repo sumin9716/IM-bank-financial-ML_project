@@ -5,13 +5,12 @@ Advanced ML Models for FX Hedging Optimization
 
 import pandas as pd
 import numpy as np
-from typing import Tuple, Dict, Any
+from typing import Dict, Any
 import logging
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import mean_squared_error, r2_score, classification_report
+from sklearn.metrics import mean_squared_error, r2_score
 import joblib
-from pathlib import Path
 
 try:
     import xgboost as xgb

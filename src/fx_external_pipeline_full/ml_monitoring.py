@@ -6,7 +6,7 @@ ML Model Performance Monitoring and Reporting
 import pandas as pd
 import numpy as np
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 from pathlib import Path
 import matplotlib.pyplot as plt
 

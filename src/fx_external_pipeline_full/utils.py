@@ -1,4 +1,4 @@
-import logging, logging.config, yaml, numpy as np, pandas as pd
+import logging, logging.config, yaml, pandas as pd
 from pathlib import Path
 
 def load_yaml(path: str) -> dict:
