@@ -1,4 +1,10 @@
+import logging
+
+import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
 
 def recommend_hedge_ratio(row, size_thresholds=(1e6, 5e6), ratios=(0.0, 0.5, 0.8)):
     ne = abs(float(row.get("net_exposure", 0.0)))
@@ -19,7 +25,7 @@ def _apply_policy_v0(exposure_df: pd.DataFrame, cfg: dict|None=None) -> pd.DataF
     return df
 
 def _apply_policy_v1(exposure_df: pd.DataFrame, features_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    # base v0
+    """v0 비율에서 출발해 추세·변동성·캐리 신호로 비율을 올리거나 내린다."""
     df = _apply_policy_v0(exposure_df, cfg)
     pol = (cfg.get('policy') or {})
     fcfg = (pol.get('features') or {})
@@ -28,20 +34,17 @@ def _apply_policy_v1(exposure_df: pd.DataFrame, features_df: pd.DataFrame, cfg: 
     bump_to = float((pol.get('bump_to') or 0.8))
     reduce_to = float((pol.get('reduce_to') or 0.5))
 
-    # merge monthly features (on 'month')
     feats = features_df.copy()
     if 'month' not in feats.columns:
         raise KeyError("features_df must include 'month' column")
     dd = df.merge(feats, on='month', how='left')
 
-    # signals
     dd["sig_trend_up"] = (dd["ma20"] > dd["ma60"]).astype(int)
     dd["sig_high_vol"] = (dd["rv20"] > rv20_th).astype(int)
     dd["sig_carry_neg"] = (dd["carry"] < carry_th).astype(int)
 
-    # decision logic:
-    # if high vol OR negative carry OR (trend up AND net_exposure>0) => bump_to
-    # elif trend down AND net_exposure<0 => reduce_to (hedge less if favorable trend & importer bias)
+    # 변동성이 높거나 캐리가 음수이거나, 상승 추세에 수출 포지션이면 bump_to 이상으로 올린다.
+    # 하락 추세에 수입 포지션이면 환율이 유리하게 움직이므로 reduce_to 이하로 낮춘다.
     cond_bump = (dd["sig_high_vol"]==1) | (dd["sig_carry_neg"]==1) | ((dd["sig_trend_up"]==1) & (dd["net_exposure"]>0))
     cond_reduce = ((dd["sig_trend_up"]==0) & (dd["net_exposure"]<0))
 
@@ -52,17 +55,15 @@ def _apply_policy_v1(exposure_df: pd.DataFrame, features_df: pd.DataFrame, cfg: 
 
 def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None, cfg: dict|None=None, 
                  ml_models: dict|None=None, market_df: pd.DataFrame|None=None) -> pd.DataFrame:
+    """헤지 비율(hedge_ratio)과 적용한 정책(policy_version) 열을 붙여 돌려준다.
+
+    학습된 ML 모델이 있으면 ML 예측을, 없거나 실패하면 policy.version(v1 → v0 순)의
+    규칙을 쓴다. 어느 경우든 마지막에 가중치와 상하한을 적용한다.
     """
-    Enhanced policy application with ML-based hedge ratio prediction
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
     pol = (cfg or {}).get('policy', {}) if cfg else {}
     ml_cfg = (cfg or {}).get('ml_models', {}) if cfg else {}
     ver = pol.get('version', 'v0')
     
-    # Check if ML hedge ratio prediction is available and enabled
     use_ml_hedge = (ml_models is not None and 
                     'hedge_ratio_predictor' in ml_models and
                     ml_cfg.get('hedge_ratio_prediction', {}).get('enabled', False))
@@ -76,8 +77,6 @@ def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None,
             df = exposure_df.copy()
             df['hedge_ratio'] = predicted_ratios
             df['policy_version'] = 'ML_enhanced'
-            
-            # Still apply weights and bounds
             df = _apply_weights_and_bounds(df, cfg or {})
             
             logger.info(f"Applied ML hedge ratios. Mean: {predicted_ratios.mean():.3f}, "
@@ -87,10 +86,9 @@ def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None,
             
         except Exception as e:
             logger.warning(f"ML hedge ratio prediction failed: {e}. Falling back to rule-based.")
-            # Set fallback flag to ensure proper fallback handling
-            ver = pol.get('v1', {}).get('fallback_to_v0', True) and 'v0' or ver
+            if pol.get('v1', {}).get('fallback_to_v0', True):
+                ver = 'v0'
     
-    # Determine appropriate policy version based on available inputs
     if ver == 'v1':
         if features_df is not None and cfg is not None:
             try:
@@ -98,13 +96,11 @@ def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None,
                 return _apply_weights_and_bounds(_apply_policy_v1(exposure_df, features_df, cfg), cfg)
             except Exception as e:
                 logger.warning(f"Policy v1 failed: {e}. Falling back to v0")
-                # Fallback to v0 if v1 configuration allows it
                 if pol.get('v1', {}).get('fallback_to_v0', True):
                     ver = 'v0'
                 else:
                     raise e
         else:
-            # Missing features_df for v1, check fallback option
             logger.warning(f"Policy v1 requires features_df but not provided. "
                           f"features_df is None: {features_df is None}")
             if pol.get('v1', {}).get('fallback_to_v0', True):
@@ -113,28 +109,26 @@ def apply_policy(exposure_df: pd.DataFrame, features_df: pd.DataFrame|None=None,
             else:
                 raise ValueError("Policy v1 requires features_df, but fallback to v0 is disabled")
     
-    # Apply v0 policy (default or fallback)
     logger.info("Applying rule-based v0 policy")
     return _apply_weights_and_bounds(_apply_policy_v0(exposure_df, cfg or {}), cfg or {})
 
 def _normalize_series(x):
-    import numpy as np, pandas as pd
+    """z-점수를 tanh로 [-1, 1]에 눌러 담는다."""
     s = pd.to_numeric(x, errors="coerce")
     if s.isna().all(): 
         return s.fillna(0.0)
     m = float(s.mean()); sd = float(s.std(ddof=0)) or 1.0
     z = (s - m) / sd
-    # squash to [-1,1] via tanh
     return z.apply(lambda v: float(np.tanh(v)))
 
 def _apply_weights_and_bounds(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """신용·규모·관계 가중치로 비율을 조정하고 상하한을 적용한다. 순노출이 0이면 비율도 0."""
     pol = (cfg.get('policy') or {})
     weights = (pol.get('weights') or {})
     w_credit = float(weights.get('credit', 0.0))
     w_size = float(weights.get('size', 0.0))
     w_rel = float(weights.get('relationship', 0.0))
 
-    # Build normalized factors if columns exist
     credit = None
     for c in ['credit_score','corp_grade_code','corp_grade']:
         if c in df.columns:
@@ -143,7 +137,6 @@ def _apply_weights_and_bounds(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     size = df.get('net_exposure', 0.0)
     rel = df.get('relationship_score', 0.0)
 
-    import pandas as pd
     cred_n = _normalize_series(credit) if credit is not None else pd.Series(0.0, index=df.index)
     size_n = _normalize_series(size) if 'net_exposure' in df.columns else pd.Series(0.0, index=df.index)
     rel_n  = _normalize_series(rel) if 'relationship_score' in df.columns else pd.Series(0.0, index=df.index)
@@ -151,22 +144,18 @@ def _apply_weights_and_bounds(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     adj_factor = 1.0 + w_credit*cred_n + w_size*size_n + w_rel*rel_n
     df['hedge_ratio'] = (df['hedge_ratio'] * adj_factor).astype(float)
 
-    # floor/cap
     bounds = pol.get('bounds', {})
     min_r = float(bounds.get('min_ratio', 0.0))
     max_r = float(bounds.get('max_ratio', 1.0))
     df['hedge_ratio'] = df['hedge_ratio'].clip(lower=min_r, upper=max_r)
     
-    # 순노출이 0인 경우 헤지비율을 0으로 강제 설정 (무의미한 트레이드 방지)
+    # 순노출이 0인 달에 명목금액 0인 거래가 생기지 않도록 한다
     if 'net_exposure' in df.columns:
         zero_exposure_mask = (df['net_exposure'].abs() < 1e-6)
         if zero_exposure_mask.any():
             df.loc[zero_exposure_mask, 'hedge_ratio'] = 0.0
-            import logging
-            logger = logging.getLogger(__name__)
             logger.info(f"Set hedge ratio to 0 for {zero_exposure_mask.sum()} companies with zero net exposure")
     
-    # 헤지비율 반올림 (보고서 품질 개선)
     df['hedge_ratio'] = df['hedge_ratio'].round(3)
 
     return df
