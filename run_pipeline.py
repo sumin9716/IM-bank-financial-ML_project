@@ -19,14 +19,15 @@ from fx_external_pipeline_full.data_quality import (  # noqa: E402
     recommend_data_fixes,
     validate_monthly_continuity,
 )
-from fx_external_pipeline_full.effectiveness_governance import (  # noqa: E402
-    append_effectiveness_changelog,
-    snapshot_effectiveness,
-)
 from fx_external_pipeline_full.exposure import compute_monthly_exposure  # noqa: E402
 from fx_external_pipeline_full.external_loader import read_eom_series_csv  # noqa: E402
 from fx_external_pipeline_full.features import compute_features  # noqa: E402
-from fx_external_pipeline_full.governance import append_changelog, snapshot_policy  # noqa: E402
+from fx_external_pipeline_full.governance import (  # noqa: E402
+    append_changelog,
+    append_effectiveness_changelog,
+    snapshot_effectiveness,
+    snapshot_policy,
+)
 from fx_external_pipeline_full.hedge_effectiveness import (  # noqa: E402
     dollar_offset_ratio,
     judge_effective,
