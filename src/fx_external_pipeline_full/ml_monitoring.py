@@ -11,7 +11,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def evaluate_hedge_performance(original_exposure_df: pd.DataFrame, 
+def evaluate_hedge_performance(original_exposure_df: pd.DataFrame,
                               ml_enhanced_exposure_df: pd.DataFrame,
                               pnl_results: pd.DataFrame) -> Dict[str, Any]:
     """규칙 기반과 ML 헤지 비율의 분포, 백테스트 손익, 헤지 사용률을 요약한다."""
@@ -69,7 +69,7 @@ def generate_ml_feature_importance_report(ml_models: Dict[str, Any]) -> pd.DataF
     return pd.DataFrame(importance_data).sort_values(['model', 'importance_score'], ascending=[True, False])
 
 
-def create_ml_performance_dashboard(ml_models: Dict[str, Any], 
+def create_ml_performance_dashboard(ml_models: Dict[str, Any],
                                   results: Dict[str, Any],
                                   save_dir: str) -> None:
     """특성 중요도, 헤지 비율 비교, 손익 요약 그림을 save_dir에 PNG로 저장한다."""
@@ -116,7 +116,7 @@ def create_ml_performance_dashboard(ml_models: Dict[str, Any],
         plt.xticks(x_pos, categories)
 
         improvement = comparison['improvement_mean']
-        plt.text(0.5, max(means) * 0.9, f'Improvement: {improvement:+.3f}', 
+        plt.text(0.5, max(means) * 0.9, f'Improvement: {improvement:+.3f}',
                 ha='center', fontsize=12, fontweight='bold',
                 bbox=dict(boxstyle='round', facecolor='lightgreen' if improvement > 0 else 'lightcoral'))
 
@@ -136,7 +136,7 @@ def create_ml_performance_dashboard(ml_models: Dict[str, Any],
         ax2.set_ylabel('Sharpe Ratio')
         ax2.set_title('Risk-Adjusted Return')
 
-        ax3.pie([pnl_data['positive_pnl_ratio'], 1-pnl_data['positive_pnl_ratio']], 
+        ax3.pie([pnl_data['positive_pnl_ratio'], 1-pnl_data['positive_pnl_ratio']],
                labels=['Positive', 'Negative'], autopct='%1.1f%%', colors=['green', 'red'])
         ax3.set_title('PnL Distribution')
 
@@ -157,7 +157,7 @@ def create_ml_performance_dashboard(ml_models: Dict[str, Any],
     logger.info(f"ML performance dashboard saved to {save_path}")
 
 
-def save_ml_performance_report(ml_models: Dict[str, Any], 
+def save_ml_performance_report(ml_models: Dict[str, Any],
                               evaluation_results: Dict[str, Any],
                               save_path: str) -> None:
     """{save_path}_model_metrics.csv, _feature_importance.csv, _evaluation_results.json을 저장한다."""
@@ -178,7 +178,7 @@ def save_ml_performance_report(ml_models: Dict[str, Any],
 
 def generate_comprehensive_ml_report(ml_models: Dict[str, Any],
                                    exposure_df_original: pd.DataFrame,
-                                   exposure_df_enhanced: pd.DataFrame, 
+                                   exposure_df_enhanced: pd.DataFrame,
                                    pnl_results: pd.DataFrame,
                                    reports_dir: str) -> None:
     logger.info("Generating comprehensive ML performance report...")

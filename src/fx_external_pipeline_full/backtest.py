@@ -78,25 +78,25 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
             })
 
     df_trades = pd.DataFrame(pnl_rows)
-    
+
     if include_open_positions:
         open_positions = []
-        
+
         for cid, grp in exposure_df.groupby(company_col):
             g = grp.sort_values(date_col).reset_index(drop=True)
             if len(g) > 0:
                 last_row = g.iloc[-1]
                 last_month = pd.to_datetime(last_row[date_col]).normalize()
-                
+
                 hedge = float(last_row["hedge_ratio"])
                 ne = float(last_row["net_exposure"])
-                
+
                 if abs(ne) * hedge >= min_notional_threshold and last_month in spot_eom.index:
                     spot_last = float(spot_eom.loc[last_month])
                     notional_usd = abs(ne) * hedge / max(spot_last, 1e-8)
-                    
+
                     trade_bd = previous_business_day(last_month, countries, holiday_cache_dir)
-                    
+
                     open_positions.append({
                         company_col: cid,
                         "trade_month": last_month,
@@ -107,10 +107,10 @@ def monthly_forward_strategy(exposure_df: pd.DataFrame,
                         "pnl_krw": 0.0,
                         "status": "open"
                     })
-        
+
         if open_positions:
             df_open = pd.DataFrame(open_positions)
             df_trades['status'] = 'closed'
             df_trades = pd.concat([df_trades, df_open], ignore_index=True)
-    
+
     return df_trades
