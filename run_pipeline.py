@@ -483,7 +483,7 @@ def write_governance(args, cfg: dict, reports_dir: str, ifrs9_meta: dict) -> Non
     snap = snapshot_effectiveness(results, snap_dir, meta=ifrs9_meta)
     changelog = Path(reports_dir) / Path(eg.get('changelog_csv') or 'reports/ifrs9_changelog.csv').name
     append_effectiveness_changelog(str(changelog), action='assess', actor=args.actor or 'system',
-                                   note=args.changelog_note, params=ifrs9_meta)
+                                   note=args.ifrs9_note or args.changelog_note, params=ifrs9_meta)
     print(f"[INFO] IFRS9 snapshot saved: {snap}")
 
 
