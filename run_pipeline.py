@@ -237,7 +237,7 @@ def main():
     print("[INFO] Computing features for policy application...")
     features_df = None
     try:
-        features_df = compute_features(spot_eom, us_eom, kr_eom, cfg)
+        features_df = compute_features(spot_daily, spot_eom, us_eom, kr_eom, cfg)
         print(f"[INFO] Features computed for {len(features_df)} time periods")
     except Exception as e:
         print(f"[WARN] Feature computation failed: {e}. Policy will use v0 fallback.")
