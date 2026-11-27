@@ -86,7 +86,7 @@ python run_pipeline.py --reports_dir /tmp/fx_reports
 | `--actor`, `--changelog_note`, `--ifrs9_note` | | 변경 이력에 남길 작성자·메모 |
 | `--profile` | | 설정 파일 `profiles` 절의 값을 덮어씀(현재 설정에는 `profiles` 절이 없음) |
 
-`bash run_example.sh`는 입력 확인 후 파이프라인을 실행하고, 입력 확인이 실패하면 `make_external_templates.py`로 합성 시장 데이터를 먼저 만듭니다.
+`bash run_example.sh`는 입력 확인 후 파이프라인을 실행해 `reports/`를 덮어씁니다. 입력 확인이 실패하면 `make_external_templates.py`로 `data/external/`의 합성 시장 데이터를 먼저 다시 만듭니다.
 
 ### 시장 데이터를 API로 받기
 
