@@ -585,9 +585,7 @@ def main():
     
     # 기업별 상세 리스크 분석 생성
     try:
-        import sys
-        sys.path.append('.')
-        from simple_risk_analytics import create_simple_risk_analytics
+        from fx_external_pipeline_full.company_risk_analytics import create_simple_risk_analytics
         print("[INFO] Generating comprehensive company risk analytics...")
         risk_report, risk_summary = create_simple_risk_analytics(
             f"{reports_dir}/exposure.csv",
