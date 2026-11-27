@@ -133,6 +133,7 @@ python run_pipeline.py --reports_dir /tmp/fx_reports
 - 시장 데이터가 합성 값이라 손익·리스크·효과성 수치에 실무적 의미가 없습니다.
 - 헤지 비율 모델은 규칙을 재현할 뿐이고, 손익을 이용해 최적 비율을 학습하는 부분은 구현되어 있지 않습니다.
 - 노출 예측 모델은 같은 기업의 앞뒤 시점이 학습·검증에 섞이는 무작위 분할을 쓰고, 예측 시 `momentum` 특성을 학습 때와 다르게 계산합니다(`ml_models.py` 주석 참고). 예측 월은 `DateOffset`으로 더해 월말이 아닌 날짜(예: 2023-07-30)가 나옵니다.
+- `company_risk_analytics.csv`의 `historical_volatility_pct`(7.37)는 월말 환율 수익률에 일별 기준인 √252를 곱해 연환산한 값입니다. 월간 기준(√12)으로 계산하면 약 1.61입니다. 헤지 비율 모델의 `volatility_20d`·`volatility_60d` 특성도 월말 값 20·60개에 √252를 곱합니다.
 - `config.yml`의 일부 키(`policy.v0`·`v1`의 임계값·가중치, `ml_models`의 학습 파라미터 등)는 코드가 읽지 않습니다. 파일의 주석에 어떤 키가 쓰이는지 적어 두었습니다.
 - 기업별 IFRS9 간이 판정(`ifrs9_company_effectiveness.csv`, 손익 표준편차 ≤ 평균 절댓값 × 2)은 커밋된 `reports/`를 만든 뒤에 추가된 출력이라 `reports/`에는 없고, 파이프라인을 실행하면 생깁니다.
 - 데이터 품질 보고서(`data_quality_report.json`)는 공백을 채운 뒤에 만들어 빠진 달이 0으로 나옵니다. 채우기 전 공백 수는 실행 로그에만 출력됩니다.

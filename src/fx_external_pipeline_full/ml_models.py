@@ -133,7 +133,7 @@ class HedgeRatioPredictor:
             return 1
 
     def _calculate_volatility(self, market_df: pd.DataFrame, date: pd.Timestamp, window: int) -> float:
-        """date까지 window개 관측치의 환율 수익률 표준편차(sqrt(252) 연환산). 계산할 수 없으면 0.015."""
+        """date까지 window개 관측치(파이프라인에서는 월말 값)의 환율 수익률 표준편차 × sqrt(252). 계산할 수 없으면 0.015."""
         try:
             end_idx = market_df.index.get_loc(date)
             start_idx = max(0, end_idx - window + 1)

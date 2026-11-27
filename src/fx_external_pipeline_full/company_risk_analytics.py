@@ -53,7 +53,7 @@ def create_company_risk_analytics(exposure_file, output_file, spot_file=DEFAULT_
     logger.info(f"Loaded {len(exposure_df)} exposure records")
 
     spot_df['returns'] = spot_df['spot'].pct_change()
-    # 월간 수익률에 sqrt(252)를 곱해 연환산한다(기존 산출물과 같은 정의).
+    # 월간 수익률인데 일별 기준인 sqrt(252)를 곱한다(월간 기준 sqrt(12)의 약 4.6배). 커밋된 결과와 맞추려고 그대로 둔다.
     historical_vol = spot_df['returns'].std() * np.sqrt(252) * 100
 
     returns_clean = spot_df['returns'].dropna()
