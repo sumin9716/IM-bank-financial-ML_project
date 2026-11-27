@@ -3,15 +3,19 @@ import os
 import pandas as pd
 import requests
 
-from .utils import to_month_end
+from .utils import redact_secret, to_month_end
 
 ECOS_BASE = "https://ecos.bok.or.kr/api/StatisticSearch"
 
 
 def _ecos_get(stat_code, cycle, start, end, item_code, api_key, lang="json", kr="kr"):
     url = f"{ECOS_BASE}/{api_key}/{lang}/{kr}/1/10000/{stat_code}/{cycle}/{start}/{end}/{item_code}"
-    r = requests.get(url, timeout=20)
-    r.raise_for_status()
+    try:
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        # 키가 요청 URL 경로에 들어가 예외 메시지와 경고 출력에 그대로 남으므로 가린다
+        raise redact_secret(e, api_key) from None
     rows = (r.json().get("StatisticSearch") or {}).get("row") or []
     if not rows:
         return pd.DataFrame(columns=["date","value"])

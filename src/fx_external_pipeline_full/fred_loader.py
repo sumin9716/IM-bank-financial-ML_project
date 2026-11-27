@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import requests
 
-from .utils import to_month_end
+from .utils import redact_secret, to_month_end
 
 FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
 
@@ -14,8 +14,12 @@ def _fred_get(series_id, api_key, start=None, end=None):
         params["observation_start"] = start
     if end:
         params["observation_end"] = end
-    r = requests.get(FRED_BASE, params=params, timeout=20)
-    r.raise_for_status()
+    try:
+        r = requests.get(FRED_BASE, params=params, timeout=20)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        # 키가 요청 URL에 들어가 예외 메시지와 경고 출력에 그대로 남으므로 가린다
+        raise redact_secret(e, api_key) from None
     rows = r.json().get("observations", [])
     if not rows:
         return pd.DataFrame(columns=["date","value"])
