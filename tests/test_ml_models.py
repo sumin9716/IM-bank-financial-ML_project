@@ -1,16 +1,9 @@
-"""
-Tests for ML models and integrated pipeline
-ML 모델 및 통합 파이프라인 테스트
-"""
+"""ML 모델, ML 정책 연동, 성과 요약 함수 테스트."""
 
 import unittest
-import pandas as pd
-import numpy as np
-from pathlib import Path
-import sys
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+import numpy as np
+import pandas as pd
 
 from fx_external_pipeline_full.ml_models import (
     HedgeRatioPredictor, ExposureForecaster, train_ml_models
@@ -294,39 +287,13 @@ class TestIntegratedMLPipeline(unittest.TestCase):
             }
         }
         
-        # Should train without major errors
-        try:
-            ml_models = train_ml_models(exposure_df, market_df, config)
-            self.assertIsInstance(ml_models, dict)
-            
-            # Check if models were created (may not train successfully with test data)
-            if ml_models:
-                for model_info in ml_models.values():
-                    self.assertIn('model', model_info)
-                    self.assertIn('metrics', model_info)
-                    
-        except Exception as e:
-            # May fail with insufficient data in test environment
-            self.skipTest(f"ML training requires more robust test setup: {e}")
+        ml_models = train_ml_models(exposure_df, market_df, config)
 
+        self.assertEqual(set(ml_models), {'hedge_ratio_predictor', 'exposure_forecaster'})
+        for model_info in ml_models.values():
+            self.assertIn('model', model_info)
+            self.assertIn('metrics', model_info)
 
-if __name__ == '__main__':
-    # Run specific test classes based on what's available
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-    
-    # Add test classes
-    suite.addTests(loader.loadTestsFromTestCase(TestHedgeRatioPredictor))
-    suite.addTests(loader.loadTestsFromTestCase(TestExposureForecaster))
-    suite.addTests(loader.loadTestsFromTestCase(TestMLPolicyIntegration))
-    suite.addTests(loader.loadTestsFromTestCase(TestMLMonitoringFunctions))
-    suite.addTests(loader.loadTestsFromTestCase(TestIntegratedMLPipeline))
-    
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-    
-    # Exit with proper code
-    sys.exit(0 if result.wasSuccessful() else 1)
 
 def test_rule_based_target_follows_exposure_tiers():
     df = pd.DataFrame({'net_exposure': [-2_000_000, 1_000_000, 999_999, 100_000, -50_000, 0]})

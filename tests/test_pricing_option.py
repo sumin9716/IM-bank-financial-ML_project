@@ -1,7 +1,3 @@
-import sys
-from pathlib import Path
-# add project src to path (../src)
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from fx_external_pipeline_full.pricing_option import garman_kohlhagen_call_put
 import math
 
