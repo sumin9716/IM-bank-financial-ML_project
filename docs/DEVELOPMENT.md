@@ -18,15 +18,20 @@ pip install -r requirements-dev.txt
 
 ```bash
 python -m pytest -q
-ruff check --select F,E9,B .        # ruff는 requirements에 없으므로 따로 설치
+ruff check --select F,E4,E7,E9,W,B .   # ruff는 requirements에 없으므로 따로 설치
 python run_pipeline.py --reports_dir /tmp/fx_reports
 ```
 
-마지막 명령의 결과를 커밋된 `reports/`와 비교해 의도하지 않은 숫자 변화가 없는지 봅니다. 다음 차이는 정상입니다.
+마지막 명령의 결과를 비교해 의도하지 않은 숫자 변화가 없는지 봅니다. 숫자를 바꾸지 않는 변경이라면 같은 환경에서 변경 전 코드로 만든 결과와 비교하는 것이 가장 정확합니다. 이때 다음 차이는 정상입니다.
 
 - `data_quality_report.json`의 `timestamp`
-- 랜덤 포레스트 예측(`future_exposure_forecast.csv`, `ml_performance_report_model_metrics.csv`)의 마지막 자릿수. 병렬 합산 순서에 따라 1e-15 수준으로 달라집니다.
-- scikit-learn·pandas 버전 차이에 따른 노출 예측 지표의 작은 변화(예: 검증 R² 0.5837 → 0.5822)
+- 랜덤 포레스트 결과(`future_exposure_forecast.csv`, `ml_performance_report_model_metrics.csv`)와 `ml_performance_report_evaluation_results.json`의 마지막 자릿수. 병렬 합산 순서 등에 따라 부동소수 오차 수준으로 달라집니다.
+
+커밋된 `reports/`와 바로 비교하면 라이브러리 버전 차이 때문에 다음도 달라집니다.
+
+- 손익·요약·IFRS9 회귀 통계의 부동소수 마지막 자릿수(pandas 3에서는 `exposure.csv`도 `4100000.0`이 `4099999.9999999995`가 되는 식으로 달라짐)
+- `company_risk_analytics.csv`의 숫자 표기(`810000` 대 `810000.0`)와 `ml_dashboard/` PNG 파일의 바이트
+- 노출 예측 지표(검증 R²: 커밋된 결과 0.5837, scikit-learn 1.7.2에서 0.5822, 1.9.1에서 0.5839)
 
 `python run_pipeline.py`를 출력 폴더 없이 실행하면 `reports/`를 덮어씁니다. 결과를 바꾸는 변경일 때만 `reports/`를 다시 만들어 커밋합니다.
 
