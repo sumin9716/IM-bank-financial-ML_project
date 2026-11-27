@@ -1,6 +1,11 @@
-import pandas as pd
+from functools import lru_cache
 from pathlib import Path
+
 import holidays as pyhol
+import pandas as pd
+
+DEFAULT_CACHE_DIR = str(Path(__file__).resolve().parents[2] / "data" / "reference" / "holidays_cache")
+
 
 def _build_country_year(country: str, year: int) -> pd.DataFrame:
     if country.upper()=='KR':
@@ -29,14 +34,20 @@ def load_holidays(countries, years, cache_dir: str) -> pd.DataFrame:
                 dfs.append(pd.read_csv(fp, parse_dates=["date"]))
     return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame(columns=["date","name","country"])
 
-def is_business_day(date, countries=['KR'], cache_dir="data/reference/holidays_cache"):
-    y = int(pd.Timestamp(date).year)
-    hol = load_holidays(countries, [y], cache_dir)
-    d = pd.Timestamp(date).normalize()
-    return (d.weekday() < 5) and (not (hol["date"]==d).any())
 
-def previous_business_day(date, countries=['KR'], cache_dir="data/reference/holidays_cache"):
-    """Find the previous business day before or on the given date."""
+@lru_cache(maxsize=None)
+def _holiday_dates(countries: tuple, year: int, cache_dir: str) -> frozenset:
+    # 백테스트는 거래마다 영업일을 확인하므로 연도별 휴일 CSV를 한 번만 읽어 둔다.
+    hol = load_holidays(countries, [year], cache_dir)
+    return frozenset(pd.to_datetime(hol["date"]))
+
+
+def is_business_day(date, countries=("KR",), cache_dir=DEFAULT_CACHE_DIR):
+    d = pd.Timestamp(date).normalize()
+    return (d.weekday() < 5) and (d not in _holiday_dates(tuple(countries), d.year, str(cache_dir)))
+
+def previous_business_day(date, countries=("KR",), cache_dir=DEFAULT_CACHE_DIR):
+    """주어진 날짜가 영업일이면 그대로, 아니면 직전 영업일을 돌려준다."""
     d = pd.Timestamp(date).normalize()
     while True:
         if is_business_day(d, countries, cache_dir):
