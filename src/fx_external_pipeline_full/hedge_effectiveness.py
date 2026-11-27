@@ -102,8 +102,9 @@ def sample_series(spot_daily: pd.Series|None, eom_series: pd.Series, period='M',
                 mask = (sd.index>=start) & (sd.index<=end)
                 val = float(sd.loc[mask].mean()) if mask.any() else _last_valid(eom_series, pend)
             else:
-                # average of EOM in the period (effectively the EOM of that period)
-                val = _last_valid(eom_series, pend)
+                start = pd.Timestamp(pend).to_period(period.upper()).start_time
+                in_period = eom_series[(eom_series.index >= start) & (eom_series.index <= pend)]
+                val = float(in_period.mean()) if len(in_period) > 0 else np.nan
         elif rule == 'prev_business_day':
             dt = pd.Timestamp(pend)
             # ensure prev business day (for KR by default)
